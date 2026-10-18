@@ -33,7 +33,7 @@ jobs:
         run: npm run lint
 
       - name: Unit tests
-        run: npx --no-install tsx --test $(find src resources -name '*.test.ts')
+        run: npx --no-install tsx --test --test-concurrency=1 $(find src resources -name '*.test.ts')
 
   build-windows:
     name: Build Windows x64
