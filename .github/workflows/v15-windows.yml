@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify-and-build:
-    name: Verify and build Windows x64
-    runs-on: windows-latest
+  verify:
+    name: Lint and test
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -33,16 +33,24 @@ jobs:
         run: npm run lint
 
       - name: Unit tests
-        shell: pwsh
-        run: |
-          $tests = @(Get-ChildItem src,resources -Recurse -Filter *.test.ts | ForEach-Object { $_.FullName })
-          $chunkSize = 25
-          for ($i = 0; $i -lt $tests.Count; $i += $chunkSize) {
-            $end = [Math]::Min($i + $chunkSize - 1, $tests.Count - 1)
-            $chunk = @($tests[$i..$end])
-            npx --no-install tsx --test @chunk
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
+        run: npx --no-install tsx --test $(find src resources -name '*.test.ts')
+
+  build-windows:
+    name: Build Windows x64
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Type-check
         run: npm run typecheck
