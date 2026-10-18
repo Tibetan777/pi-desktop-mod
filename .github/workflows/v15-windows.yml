@@ -35,8 +35,14 @@ jobs:
       - name: Unit tests
         shell: pwsh
         run: |
-          $tests = Get-ChildItem src,resources -Recurse -Filter *.test.ts | ForEach-Object { $_.FullName }
-          npx --no-install tsx --test @tests
+          $tests = @(Get-ChildItem src,resources -Recurse -Filter *.test.ts | ForEach-Object { $_.FullName })
+          $chunkSize = 25
+          for ($i = 0; $i -lt $tests.Count; $i += $chunkSize) {
+            $end = [Math]::Min($i + $chunkSize - 1, $tests.Count - 1)
+            $chunk = @($tests[$i..$end])
+            npx --no-install tsx --test @chunk
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Type-check
         run: npm run typecheck
