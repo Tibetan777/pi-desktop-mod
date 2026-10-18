@@ -1,17 +1,15 @@
 name: Build
 
-# Nothing builds on a normal push. Builds are manual: a workflow dispatch
-# (Actions tab / gh CLI) builds all three platforms and uploads the
-# installers as artifacts — no release. Pushing a version tag (e.g.
-# v0.0.3-alpha), the deliberate "create a release" step, builds all three
-# and publishes a GitHub prerelease.
+# Pi Desktop Mod V15 currently publishes Windows x64 only.
+# The V15 renderer overlay is verified against the Windows-generated bundle;
+# Linux/macOS produce a different renderer chunk and must not be treated as
+# validated V15 targets.
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
 
-# Cancel superseded runs for the same ref to save runner time.
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -37,40 +35,13 @@ jobs:
         run: npm run lint
 
       - name: Unit tests
-        # `**` glob file-args to `--test` need a newer Node than the pinned
-        # runner version supports, so enumerate files with `find` instead of
-        # relying on the shell/runtime to expand the pattern. `resources/` holds
-        # the shared permission-rules engine's tests, so include it too.
+        shell: bash
         run: npx --no-install tsx --test $(find src resources -name '*.test.ts')
 
-  build:
-    name: Build (${{ matrix.os }})
+  build-windows:
+    name: Build Windows x64
     needs: verify
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Pinned, not ubuntu-latest: node-pty's native module is compiled on
-          # the runner, and glibc 2.42+ (Ubuntu 26.04) gives it versioned
-          # cfsetispeed/cfsetospeed symbols, so the AppImage would not start on
-          # distros with an older glibc. Raise this only with that in mind.
-          - os: ubuntu-24.04
-            eb_args: '--linux AppImage'
-            artifacts: |
-              release/*.AppImage
-          - os: windows-latest
-            eb_args: '--win nsis portable'
-            artifacts: |
-              release/*.exe
-          # macOS 26 ships Xcode 26, whose actool compiles the Icon Composer
-          # asset (resources/icons/Icon.icon) that package.json uses as the app icon.
-          - os: macos-26
-            eb_args: '--mac dmg zip -c.mac.identity=-'
-            artifacts: |
-              release/*.dmg
-              release/*.zip
-
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -78,80 +49,27 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
-      # Runs postinstall, which rebuilds native modules (node-pty) for Electron.
-      # NOTE: confirmed (2026-06-08) that the windows-latest runner's bundled
-      # Visual Studio already includes the Spectre-mitigated MSVC libs node-pty
-      # needs — it compiles here with no explicit install step. An earlier
-      # vs_installer step worked but added ~4 min for nothing, so it was removed.
-      # (People building from source on their own machines may still need those
-      # libs — see README.)
       - name: Install dependencies
         run: npm ci
-
-      - name: Select Xcode for Icon Composer assets
-        if: runner.os == 'macOS'
-        run: sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
 
       - name: Type-check
         run: npm run typecheck
 
-      - name: Build renderer/main/preload
+      - name: Build V15 overlay
         run: npm run build
 
-      - name: Package with electron-builder
-        shell: bash
-        run: npx --no-install electron-builder ${{ matrix.eb_args }} --publish never
+      - name: Package NSIS and portable
+        run: npx --no-install electron-builder --win nsis portable --x64 --publish never
         env:
-          # No Apple-issued certificates in alpha. The macOS matrix explicitly
-          # uses ad-hoc signing so the app gets its own identifier, not Electron's.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: Verify macOS local-network metadata and signature
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          apps=(release/mac*/"Pi Desktop.app")
-          test "${#apps[@]}" -eq 1
-          app_bundle="${apps[0]}"
-          /usr/libexec/PlistBuddy -c 'Print :NSLocalNetworkUsageDescription' "$app_bundle/Contents/Info.plist"
-          app_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_bundle/Contents/Info.plist")
-          codesign --verify --deep --strict "$app_bundle"
-          codesign -dv "$app_bundle" 2> signing-info.txt
-          grep -Fx "Identifier=$app_id" signing-info.txt
-
-      - name: Upload installers
+      - name: Upload Windows installers
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: installers-${{ matrix.os }}
-          path: ${{ matrix.artifacts }}
+          name: pi-desktop-mod-v15-windows-x64
+          path: release/*.exe
           if-no-files-found: error
           retention-days: 14
-
-  release:
-    name: Publish prerelease
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download all installers
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          path: dist
-          merge-multiple: true
-
-      # Attaches the built installers to the release for this tag. If you
-      # pre-created the release in the GitHub UI with your own notes, those
-      # notes are preserved (no generate_release_notes, no body input). If the
-      # tag was pushed without a release, one is created with an empty body.
-      - name: Attach installers to the release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          prerelease: true
-          make_latest: false
-          fail_on_unmatched_files: true
-          files: dist/**/*
