@@ -14,7 +14,7 @@ The application is still called **Pi Desktop**. The repository is named **Pi Des
 
 ## Screenshots
 
-These are the actual V15 mod UI supplied by the maintainer. Usage/model/runtime values are shown as captured; only workspace/project identifiers that are unrelated to the mod are removed or cropped.
+These are the maintainer-sanitized full-frame screenshots of the actual V15 mod UI. Usage/model/runtime values are shown as captured. No additional cropping is applied in this repository.
 
 ![Pi Desktop Mod home](docs/screenshots/mod-home.png)
 
@@ -121,7 +121,7 @@ This public fork intentionally excludes maintainer-specific runtime data, includ
 - the maintainer's private native speech acceleration setup;
 - private workspace/project identifiers from documentation screenshots.
 
-The public screenshots keep normal UI, usage, model, and runtime information visible. Only unrelated workspace/project identifiers are removed or cropped; credentials are never intentionally included.
+The public screenshots are the maintainer-sanitized full images and are published without additional cropping. Credentials are never intentionally included.
 
 ## Build from source
 
