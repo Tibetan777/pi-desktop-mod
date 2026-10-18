@@ -31,7 +31,7 @@ for (const spec of specs) {
   if (current !== spec.base && normalized !== spec.base) throw new Error(`V15 overlay: ${spec.name} base hash mismatch (${current}); refusing to patch unknown build`)
   if (current !== spec.base) normalizeLf(file)
   const patch = join(root, spec.patch)
-  const result = spawnSync('git', ['-c', 'core.autocrlf=false', 'apply', '--whitespace=nowarn', patch], { cwd: root, encoding: 'utf8' })
+  const result = spawnSync('git', ['-c', 'core.autocrlf=false', 'apply', '--whitespace=nowarn', '-'], { cwd: root, encoding: 'utf8', input: normalizedText(patch) })
   if (result.status !== 0) throw new Error(`V15 overlay: git apply failed for ${basename(patch)}\n${result.stderr || result.stdout}`)
   normalizeLf(file)
   const after = sha256(file)
