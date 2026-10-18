@@ -14,7 +14,7 @@ The application is still called **Pi Desktop**. The repository is named **Pi Des
 
 ## Screenshots
 
-These are the maintainer-sanitized full-frame screenshots of the actual V15 mod UI. Usage/model/runtime values are shown as captured. No additional cropping is applied in this repository.
+These are the user-provided privacy-edited full-frame screenshots of the actual V15 mod UI. They are published byte-for-byte as supplied, with no additional cropping or image processing in this repository.
 
 ![Pi Desktop Mod home](docs/screenshots/mod-home.png)
 
