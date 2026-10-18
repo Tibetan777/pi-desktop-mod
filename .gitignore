@@ -149,3 +149,25 @@ docs/superpowers/
 # Worktrees / Local Sandboxes
 .worktrees/
 .sandbox/
+
+# V15 fork privacy guardrails
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*credentials*
+*secrets*
+*session*.json
+*activity-stats*.json
+*journal*.json
+*cookies*
+*user-data*
+recovery/
+private/
+local-only/
+release-inspection/

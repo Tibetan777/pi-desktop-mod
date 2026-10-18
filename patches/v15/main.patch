@@ -1,0 +1,1003 @@
+diff --git a/out/main/index.js b/out/main/index.js
+index 771ea56..c5ad7e3 100644
+--- a/out/main/index.js
++++ b/out/main/index.js
+@@ -1516,8 +1516,46 @@ function resolveStartCli(options) {
+   );
+   return getPiCli();
+ }
++const MOD_OMP_CONTEXT_DIET_FILE = "omp-context-diet-v3.yml";
++const MOD_OMP_CONTEXT_DIET_TEXT = [
++  "compaction:",
++  "  enabled: true",
++  "  thresholdTokens: 131072",
++  "  keepRecentTokens: 16000",
++  "  v2RetainedMessageBudget: 48000",
++  "  midTurnEnabled: true",
++  "  supersedeReads: true",
++  "  dropUseless: true",
++  "providers:",
++  "  cacheRetention: auto",
++  "  cacheWarming: off",
++  "provider:",
++  "  appendOnlyContext: auto",
++  ""
++].join("\n");
++function modOmpContextDietPath(options) {
++  const engine = options.engine ?? getConfiguredEngineKind();
++  if (engine !== "omp") return null;
++  try {
++    const file = getGuiDataPath(MOD_OMP_CONTEXT_DIET_FILE);
++    let current = null;
++    try { current = fs.readFileSync(file, "utf8"); } catch {}
++    if (current !== MOD_OMP_CONTEXT_DIET_TEXT) {
++      const temp = file + ".pending";
++      fs.writeFileSync(temp, MOD_OMP_CONTEXT_DIET_TEXT, "utf8");
++      fs.renameSync(temp, file);
++    }
++    return file;
++  } catch (error) {
++    appLog.warn("omp-context-diet", "Could not materialize OMP Context Diet v3 overlay", error);
++    return null;
++  }
++}
++
+ function buildPiArgs(options) {
+   const args = [MODE_FLAG, RPC_MODE];
++  const modDietConfig = modOmpContextDietPath(options);
++  if (modDietConfig && !options.args?.some((arg) => arg === "--config" || arg.startsWith("--config="))) args.push("--config", modDietConfig);
+   if (options.noSession) {
+     args.push(NO_SESSION_FLAG);
+   }
+@@ -2177,6 +2215,11 @@ const IPC_CHANNELS = {
+   SESSION_CLONE: "session:clone",
+   SESSION_LIST: "session:list",
+   SESSION_LIST_ALL: "session:list-all",
++  SESSION_HANDOFF_TRANSFER: "session:handoff-transfer",
++  SESSION_SET_FAST_MODE: "session:set-fast-mode",
++  SESSION_HISTORY_READ: "session:history-read",
++  SESSION_HISTORY_COPY: "session:history-copy",
++  SESSION_REMOVE_QUEUED_MESSAGE: "session:remove-queued-message",
+   SESSION_RESUME_TARGET: "session:resume-target",
+   SESSION_GET_STATE: "session:get-state",
+   SESSION_GET_MESSAGES: "session:get-messages",
+@@ -2227,6 +2270,9 @@ const IPC_CHANNELS = {
+   UPDATE_CHECK: "update:check",
+   // Activity
+   ACTIVITY_GET_STATS: "activity:get-stats",
++  PROVIDER_ACCOUNT_ANALYTICS_GET: "provider-account-analytics:get",
++  PROVIDER_ACCOUNT_ANALYTICS_CONNECT: "provider-account-analytics:connect",
++  PROVIDER_ACCOUNT_ANALYTICS_DISCONNECT: "provider-account-analytics:disconnect",
+   // Workflow run monitoring
+   WORKFLOW_LIST: "workflow:list",
+   WORKFLOW_GET_RUN: "workflow:get-run",
+@@ -2350,6 +2396,9 @@ const IPC_CHANNELS = {
+   VOICE_CANCEL: "voice:cancel",
+   VOICE_REMOVE: "voice:remove",
+   VOICE_SELECT: "voice:select",
++  VOICE_NATIVE_TRANSCRIBE: "voice:native-transcribe",
++  VOICE_NATIVE_BEGIN: "voice:native-begin",
++  VOICE_NATIVE_END: "voice:native-end",
+   // TypeSafe (Jev): API key storage and agent skill install
+   TYPESAFE_STATUS: "typesafe:status",
+   TYPESAFE_SAVE_KEY: "typesafe:save-key",
+@@ -4265,12 +4314,36 @@ function getOmpSessionsRoot() {
+   const agentDir = process.env.OMP_CODING_AGENT_DIR || path.join(process.env.HOME ?? process.env.USERPROFILE ?? "", ".omp", "agent");
+   return path.join(agentDir, "sessions");
+ }
++function piModRegisteredWorkspaceSessionRoots() {
++  try {
++    const conf = getGuiDataPath("workspaces.json");
++    if (!fs.statSync(conf).isFile() || fs.statSync(conf).size > 1024 * 1024) return [];
++    const ws = JSON.parse(fs.readFileSync(conf, "utf8")).workspaces;
++    if (!Array.isArray(ws)) return [];
++    const entries = [];
++    for (const w of ws.slice(0,64)) {
++      if (!w || typeof w.path !== "string" || !/^ws-[A-Za-z0-9-]{8,90}$/.test(w.id||"")) continue;
++      const originalRoot=fs.realpathSync(w.path);
++      for (const [engine,attr] of [["pi","piRoot"],["omp","ompRoot"]]) {
++        const dir = w.sessionStorage?.[attr];
++        if (typeof dir !== "string" || !fs.existsSync(dir)) continue;
++        const expected = path.join(originalRoot,"private","pi-desktop","sessions",w.id,engine);
++        const actual = fs.realpathSync(dir);
++        if (path.resolve(actual).toLowerCase() !== path.resolve(expected).toLowerCase()) continue;
++        if (!fs.statSync(actual).isDirectory()) continue;
++        entries.push({root:actual,engine});
++      }
++    }
++    return entries;
++  } catch (error) {return [];}
++}
+ function getSessionRoots() {
+-  return [.../* @__PURE__ */ new Set([getSessionsRoot(), getOmpSessionsRoot()])];
++  return [...new Set([getSessionsRoot(),getOmpSessionsRoot(),...piModRegisteredWorkspaceSessionRoots().map(x=>x.root)])];
+ }
+ function engineForSessionPath(candidate) {
+   if (isPathWithin(getSessionsRoot(), candidate)) return "pi";
+   if (isPathWithin(getOmpSessionsRoot(), candidate)) return "omp";
++  for (const source of piModRegisteredWorkspaceSessionRoots()) if (isPathWithin(source.root,candidate)) return source.engine;
+   return null;
+ }
+ function engineForBoundSession(bound) {
+@@ -8506,7 +8579,7 @@ const RANGE_DAYS = {
+   "7": 7
+ };
+ const STORE_FILE_NAME = "activity-stats.json";
+-const STORE_VERSION = 1;
++const STORE_VERSION = 6;
+ const JSONL_EXTENSION = ".jsonl";
+ const MESSAGE_RECORD_TYPE = "message";
+ const MS_PER_DAY = 864e5;
+@@ -8525,16 +8598,168 @@ function sessionIdFromPath$1(filePath) {
+   const base = path.basename(filePath);
+   return base.endsWith(JSONL_EXTENSION) ? base.slice(0, -JSONL_EXTENSION.length) : base;
+ }
++/**
++ * Pi Desktop Usage Accounting v3.
++ * OMP already normalizes provider usage into disjoint token classes:
++ *   input = uncached/fresh prompt tokens
++ *   cacheRead = prompt tokens served from cache
++ *   cacheWrite = prompt tokens written to cache
++ *   output = generated tokens
++ * Therefore prompt work is input + cacheRead + cacheWrite. These values are
++ * journal telemetry, not provider-account quota/billing totals.
++ */
++const MOD_USAGE_V3_KEYS = ["promptWork", "uncachedInput", "output", "cacheRead", "cacheWrite", "reasoningTokens", "totalTokens"];
++function modUsageV3Int(value) {
++  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
++}
++function modUsageV3Metric(value, provenance = "OMP_NORMALIZED_JOURNAL") {
++  return { value, available: value !== null, provenance };
++}
++function modUsageV3EmptyMetric(provenance = "OMP_NORMALIZED_JOURNAL") {
++  return { value: 0, reported: 0, missing: 0, provenance };
++}
++function modUsageV3EmptyRow(provider, model, sessionId = null) {
++  return {
++    provider,
++    model,
++    sessionId,
++    responses: 0,
++    metrics: Object.fromEntries(MOD_USAGE_V3_KEYS.map((key) => [key, modUsageV3EmptyMetric(key === "reasoningTokens" ? "PROVIDER_OPTIONAL" : "OMP_NORMALIZED_JOURNAL")])),
++    integrityMismatches: 0,
++    cacheObservation: "zero-or-unreported"
++  };
++}
++function modUsageV3AddMetric(target, metric) {
++  if (!metric?.available) {
++    target.missing++;
++    return;
++  }
++  target.value += metric.value;
++  target.reported++;
++}
++function modUsageV3Fingerprint(message, timestamp) {
++  try {
++    const payload = JSON.stringify([
++      message.provider ?? null,
++      message.model ?? null,
++      timestamp ?? null,
++      message.usage?.input ?? null,
++      message.usage?.output ?? null,
++      message.usage?.cacheRead ?? null,
++      message.usage?.cacheWrite ?? null,
++      message.usage?.totalTokens ?? null,
++      message.content ?? null
++    ]);
++    return require("crypto").createHash("sha256").update(payload).digest("hex");
++  } catch {
++    return null;
++  }
++}
++function modUsageV3TrackMessage(bucket, message, meta = {}) {
++  if (!message || message.role !== "assistant" || !message.usage || typeof message.usage !== "object") return;
++  const provider = typeof message.provider === "string" && message.provider.trim() ? message.provider.trim() : "Unknown provider";
++  const model = typeof message.model === "string" && message.model.trim() ? message.model.trim() : "Unknown model";
++  const input = modUsageV3Int(message.usage.input);
++  const output = modUsageV3Int(message.usage.output);
++  const cacheRead = modUsageV3Int(message.usage.cacheRead);
++  const cacheWrite = modUsageV3Int(message.usage.cacheWrite);
++  const totalTokens = modUsageV3Int(message.usage.totalTokens);
++  const reasoningTokens = modUsageV3Int(message.usage.reasoningTokens);
++  (bucket.usageEvents ??= []).push({
++    provider,
++    model,
++    responseId: typeof message.responseId === "string" && message.responseId ? message.responseId : null,
++    recordId: typeof meta.recordId === "string" && meta.recordId ? meta.recordId : null,
++    fingerprint: meta.fingerprint ?? null,
++    timestamp: meta.timestamp ?? null,
++    usage: { input, output, cacheRead, cacheWrite, totalTokens, reasoningTokens }
++  });
++}
++function modUsageV3Identity(event) {
++  if (event.responseId) return JSON.stringify(["response", event.provider, event.responseId]);
++  if (event.fingerprint) return JSON.stringify(["fingerprint", event.provider, event.fingerprint]);
++  return JSON.stringify(["fallback", event.provider, event.model, event.timestamp, event.usage?.input, event.usage?.output, event.usage?.cacheRead, event.usage?.cacheWrite, event.usage?.totalTokens]);
++}
++function modUsageV3Normalize(event) {
++  const raw = event.usage || {};
++  const input = raw.input;
++  const output = raw.output;
++  const cacheRead = raw.cacheRead;
++  const cacheWrite = raw.cacheWrite;
++  const promptWork = input === null && cacheRead === null && cacheWrite === null ? null : (input ?? 0) + (cacheRead ?? 0) + (cacheWrite ?? 0);
++  const computedTotal = promptWork === null && output === null ? null : (promptWork ?? 0) + (output ?? 0);
++  const totalTokens = raw.totalTokens ?? computedTotal;
++  const integrityMismatch = raw.totalTokens !== null && computedTotal !== null && raw.totalTokens !== computedTotal;
++  return {
++    promptWork: modUsageV3Metric(promptWork),
++    uncachedInput: modUsageV3Metric(input),
++    output: modUsageV3Metric(output),
++    cacheRead: modUsageV3Metric(cacheRead),
++    cacheWrite: modUsageV3Metric(cacheWrite),
++    reasoningTokens: modUsageV3Metric(raw.reasoningTokens, "PROVIDER_OPTIONAL"),
++    totalTokens: modUsageV3Metric(totalTokens),
++    integrityMismatch,
++    cacheObserved: (cacheRead ?? 0) > 0 || (cacheWrite ?? 0) > 0
++  };
++}
++function usageAggregateRange(sessions, now, rangeDays, sinceMs = null) {
++  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
++  const dateKey = (day) => day.getFullYear() + "-" + String(day.getMonth() + 1).padStart(2, "0") + "-" + String(day.getDate()).padStart(2, "0");
++  const start = dateKey(new Date(today.getTime() - (rangeDays - 1) * 864e5));
++  const end = dateKey(today);
++  const seen = new Map();
++  let canonicalJournalResponses = 0;
++  let excludedByScope = 0;
++  let postCanonicalDuplicates = 0;
++  for (const [sessionId, entry] of Object.entries(sessions || {})) {
++    if (!entry || typeof entry !== "object") continue;
++    for (const [day, bucket] of Object.entries(entry.days || {})) {
++      if (day < start || day > end) continue;
++      for (const event of bucket.usageEvents || []) {
++        canonicalJournalResponses++;
++        if (sinceMs !== null && (!(typeof event.timestamp === "number") || event.timestamp < sinceMs)) {
++          excludedByScope++;
++          continue;
++        }
++        const identity = modUsageV3Identity(event);
++        if (seen.has(identity)) {
++          postCanonicalDuplicates++;
++          continue;
++        }
++        seen.set(identity, { ...event, sessionId });
++      }
++    }
++  }
++  const grouped = new Map();
++  for (const event of seen.values()) {
++    const normalized = modUsageV3Normalize(event);
++    const key = JSON.stringify([event.sessionId, event.provider, event.model]);
++    let row = grouped.get(key);
++    if (!row) grouped.set(key, row = modUsageV3EmptyRow(event.provider, event.model, event.sessionId));
++    row.responses++;
++    if (normalized.integrityMismatch) row.integrityMismatches++;
++    if (normalized.cacheObserved) row.cacheObservation = "observed";
++    for (const metricKey of MOD_USAGE_V3_KEYS) modUsageV3AddMetric(row.metrics[metricKey], normalized[metricKey]);
++  }
++  return {
++    rows: [...grouped.values()].sort((a, b) => a.provider.localeCompare(b.provider) || a.model.localeCompare(b.model) || a.sessionId.localeCompare(b.sessionId)),
++    rangeDays,
++    canonicalJournalResponses,
++    uniqueResponses: seen.size,
++    excludedByScope,
++    postCanonicalDuplicates,
++    scope: sinceMs === null ? "history" : "current"
++  };
++}
+ function parseSessionContent(content) {
+   const days = {};
++  const latestUsageById = new Map();
++  let lineIndex = 0;
+   for (const line of content.split("\n")) {
++    lineIndex++;
+     if (!line.trim()) continue;
+     let record;
+-    try {
+-      record = JSON.parse(line);
+-    } catch {
+-      continue;
+-    }
++    try { record = JSON.parse(line); } catch { continue; }
+     if (typeof record !== "object" || record === null) continue;
+     const rec = record;
+     if (rec.type !== MESSAGE_RECORD_TYPE || typeof rec.timestamp !== "string") continue;
+@@ -8546,14 +8771,43 @@ function parseSessionContent(content) {
+     const hourKey = String(when.getHours());
+     bucket.hours[hourKey] = (bucket.hours[hourKey] ?? 0) + 1;
+     const msg = rec.message;
+-    if (msg && typeof msg === "object" && msg.role === "assistant" && typeof msg.model === "string" && msg.usage && typeof msg.usage === "object") {
+-      const model = bucket.models[msg.model] ??= { input: 0, output: 0 };
+-      model.input += toFiniteNumber(msg.usage.input);
+-      model.output += toFiniteNumber(msg.usage.output);
++    if (msg && typeof msg === "object" && msg.role === "assistant" && msg.usage && typeof msg.usage === "object") {
++      if (typeof msg.model === "string") {
++        const model = bucket.models[msg.model] ??= { input: 0, output: 0 };
++        model.input += toFiniteNumber(msg.usage.input) + toFiniteNumber(msg.usage.cacheRead) + toFiniteNumber(msg.usage.cacheWrite);
++        model.output += toFiniteNumber(msg.usage.output);
++      }
++      const usageId = typeof rec.id === "string" && rec.id ? rec.id : "line:" + lineIndex;
++      latestUsageById.set(usageId, {
++        dayKey,
++        msg,
++        recordId: usageId,
++        timestamp: when.getTime(),
++        fingerprint: modUsageV3Fingerprint(msg, when.getTime())
++      });
+     }
+   }
++  for (const item of latestUsageById.values()) {
++    modUsageV3TrackMessage(days[item.dayKey], item.msg, {
++      recordId: item.recordId,
++      timestamp: item.timestamp,
++      fingerprint: item.fingerprint
++    });
++  }
+   return days;
+ }
++
++
++function modUsageLoadProviderSnapshots() {
++  try {
++    const file = getGuiDataPath("provider-usage-snapshots-v4.json");
++    if (!fs.existsSync(file)) return {};
++    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
++    return parsed && typeof parsed === "object" && parsed.providers && typeof parsed.providers === "object" ? parsed.providers : {};
++  } catch {
++    return {};
++  }
++}
+ function newestDay(entry) {
+   let max = "";
+   for (const key of Object.keys(entry.days)) if (key > max) max = key;
+@@ -8573,8 +8827,11 @@ class ActivityStatsStore {
+     this.storePathOverride = deps2.storePath;
+     this.modelsConfigPathOverride = deps2.modelsConfigPath;
+   }
++  roots() {
++    return this.sessionsRoot ? [this.sessionsRoot] : getSessionRoots();
++  }
+   root() {
+-    return this.sessionsRoot ?? getSessionsRoot();
++    return this.roots()[0];
+   }
+   modelsFile() {
+     if (this.modelsConfigPathOverride) {
+@@ -8598,21 +8855,40 @@ class ActivityStatsStore {
+     if (this.loaded) return;
+     this.loaded = true;
+     const path2 = this.storePath();
++    const nowMs = Date.now();
++    const newScope = () => ({
++      schema: "usage-scope-v4",
++      startedAtMs: nowMs,
++      reason: "account-safe-current-runtime-boundary"
++    });
+     try {
+       if (fs.existsSync(path2)) {
+         const parsed = JSON.parse(fs.readFileSync(path2, "utf-8"));
+         if (parsed && typeof parsed === "object" && typeof parsed.sessions === "object" && parsed.sessions !== null) {
+           const p = parsed;
++          const validScope = p.usageScope && typeof p.usageScope === "object" && Number.isFinite(p.usageScope.startedAtMs);
+           this.store = {
+             version: STORE_VERSION,
+             sessions: p.sessions,
+-            modelNames: p.modelNames && typeof p.modelNames === "object" ? p.modelNames : {}
++            modelNames: p.modelNames && typeof p.modelNames === "object" ? p.modelNames : {},
++            usageScope: validScope ? p.usageScope : newScope()
+           };
++          if (p.version !== STORE_VERSION) {
++            for (const entry of Object.values(this.store.sessions)) {
++              if (entry && typeof entry === "object") entry.mtimeMs = -1;
++            }
++            this.store.usageScope = newScope();
++            this.dirty = true;
++          } else if (!validScope) {
++            this.dirty = true;
++          }
++          return;
+         }
+       }
+     } catch {
+-      this.store = { version: STORE_VERSION, sessions: {}, modelNames: {} };
+     }
++    this.store = { version: STORE_VERSION, sessions: {}, modelNames: {}, usageScope: newScope() };
++    this.dirty = true;
+   }
+   /**
+    * Refresh id→name mappings from models.json (last-one-wins across providers).
+@@ -8648,7 +8924,7 @@ class ActivityStatsStore {
+   async refresh(now = /* @__PURE__ */ new Date()) {
+     this.ensureLoaded();
+     const files2 = [];
+-    await collectFilesAsync(this.root(), files2);
++    for (const root of this.roots()) await collectFilesAsync(root, files2);
+     for (const file of files2) {
+       const id = sessionIdFromPath$1(file);
+       let mtimeMs;
+@@ -8674,7 +8950,7 @@ class ActivityStatsStore {
+   flushSync(now = /* @__PURE__ */ new Date()) {
+     this.ensureLoaded();
+     const files2 = [];
+-    collectFilesSync(this.root(), files2);
++    for (const root of this.roots()) collectFilesSync(root, files2);
+     for (const file of files2) {
+       const id = sessionIdFromPath$1(file);
+       let mtimeMs;
+@@ -8774,9 +9050,11 @@ class ActivityStatsStore {
+     }
+     const ranges = {};
+     for (const key of Object.keys(RANGE_DAYS)) {
+-      ranges[key] = this.aggregateRange(perDay, todayMidnight, RANGE_DAYS[key]);
++      const currentUsage = usageAggregateRange(this.store.sessions, now, RANGE_DAYS[key], this.store.usageScope?.startedAtMs ?? now.getTime());
++      const historyUsage = usageAggregateRange(this.store.sessions, now, RANGE_DAYS[key], null);
++      ranges[key] = { ...this.aggregateRange(perDay, todayMidnight, RANGE_DAYS[key]), usageTelemetry: currentUsage, usageTelemetryHistory: historyUsage };
+     }
+-    return { days, ranges };
++    return { days, ranges, usageScope: this.store.usageScope, providerSnapshots: modUsageLoadProviderSnapshots() };
+   }
+   aggregateRange(perDay, todayMidnight, rangeDays) {
+     const startKey = localDayKey(new Date(todayMidnight.getTime() - (rangeDays - 1) * MS_PER_DAY));
+@@ -8967,8 +9245,105 @@ async function deleteSessionFile(sessionPath) {
+     };
+   }
+ }
++function modParseExactTarget(input) {
++  if(!isObject(input)||!["runtimeId","workspaceId","sessionId","sessionPath"].every(k=>isString(input[k])&&input[k].trim()))throw Error("EXACT_NATIVE_SESSION_REQUIRED");
++  return input;
++}
++async function modRunBoundCommand(ctx,input,cmd) {
++  const target=modParseExactTarget(input),ws=ctx.workspaceManager;
++  const runtime=ws.getSessionRuntime(target.runtimeId);
++  if(!runtime||runtime.workspaceId!==target.workspaceId||runtime.sessionId!==target.sessionId||!runtime.sessionPath||!pathsEqual(runtime.sessionPath,target.sessionPath)||runtime.status!=="running")throw Error("RUNTIME_OR_SESSION_CHANGED");
++  const manager=ws.getPiManagerForSession(target.workspaceId,target.sessionId);
++  if(!manager||ws.runtimeIdFor(manager)!==target.runtimeId||manager.getEngineKind()!=="omp")throw Error("OMP_NATIVE_SESSION_UNAVAILABLE");
++  const before=await manager.sendCommand({type:"get_state"});
++  if(before?.success!==true||before.data?.sessionId!==target.sessionId||!before.data?.sessionFile||!pathsEqual(before.data.sessionFile,target.sessionPath))throw Error("NATIVE_SESSION_READBACK_MISMATCH");
++  const again=ws.getSessionRuntime(target.runtimeId);
++  if(!again||again.sessionId!==target.sessionId||!pathsEqual(again.sessionPath,target.sessionPath))throw Error("SESSION_CHANGED_DURING_ACTION");
++  if(cmd.type==="get_state")return before;
++  return await manager.sendCommand(cmd);
++}
++async function modHistoryRead(ctx,target,options){
++ const exact=modParseExactTarget(target);
++ await modRunBoundCommand(ctx,exact,{type:"get_state"});
++ const fs=require("node:fs"),path=require("node:path");
++ const journal=path.resolve(exact.sessionPath);
++ if(!journal.toLowerCase().endsWith(".jsonl"))throw Error("NATIVE_JOURNAL_REQUIRED");
++ const stat=await fs.promises.stat(journal);
++ if(!stat.isFile())throw Error("NATIVE_JOURNAL_NOT_FILE");
++ const before=options?.beforeByte===undefined?stat.size:options.beforeByte;
++ if(!Number.isSafeInteger(before)||before<0||before>stat.size)throw Error("HISTORY_CURSOR_INVALID");
++ if(before===0)return {sessionId:exact.sessionId,rows:[],nextBeforeByte:0,fileBytes:stat.size,range:[0,0],scannedMessages:0};
++ const maxBytes=4*1024*1024;
++ const from=Math.max(0,before-maxBytes),length=before-from;
++ const buffer=Buffer.allocUnsafe(length),fd=await fs.promises.open(journal,"r");
++ let offset=0;
++ try{while(offset<length){const read=await fd.read(buffer,offset,length-offset,from+offset);if(!read.bytesRead)throw Error("JOURNAL_CHANGED_DURING_READ");offset+=read.bytesRead}}
++ finally{await fd.close()}
++ const first=from===0?0:buffer.indexOf(10)+1;
++ if(from>0&&first===0)throw Error("JOURNAL_LINE_EXCEEDS_WINDOW");
++ const string=buffer.subarray(first).toString("utf8"),lines=string.split("\n");
++ if(!string.endsWith("\n"))lines.pop();
++ const rows=[];let scanned=0;
++ const add=(row)=>{if(rows.length>=6500)throw Error("TOO_MANY_ROWS_PER_WINDOW");rows.push(row)};
++ for(const line of lines){
++  if(!line||line.length>2500000)continue;
++  let record;try{record=JSON.parse(line)}catch{continue}
++  if(record?.type!=="message"||!record.message)continue;
++  const role=record.message.role,parts=Array.isArray(record.message.content)?record.message.content:[];
++  if(!["user","assistant","toolResult"].includes(role))continue;
++  scanned++;
++  const id=String(record.id||""),at=typeof record.timestamp==="string"?record.timestamp:"";
++  if(role!=="toolResult"){
++   const body=parts.filter(x=>x?.type==="text"&&typeof x.text==="string").map(x=>x.text).join("\n");
++   if(body.trim())add({id:id+"-text",role,kind:"text",at,text:body.slice(0,7500),truncated:body.length>7500});
++  }
++  for(const part of parts){
++   if(role==="assistant"&&part?.type==="toolCall"){
++    const args=typeof part.arguments==="string"?part.arguments:JSON.stringify(part.arguments??{});
++    const text=String(part.name||"tool")+" "+String(args||"");
++    add({id:id+"-call-"+String(part.id||""),role:"tool",kind:"call",at,text:text.slice(0,2400),truncated:text.length>2400});
++   }else if(role==="toolResult"&&part?.type==="text"&&typeof part.text==="string"){
++    add({id:id+"-result",role:"tool",kind:"result",at,text:part.text.slice(0,3000),truncated:part.text.length>3000});
++    break;
++   }
++  }
++ }
++ return {sessionId:exact.sessionId,rows,nextBeforeByte:from+first,fileBytes:stat.size,range:[from+first,before],scannedMessages:scanned};
++}
+ function registerSessionHandlers(ctx) {
+   const { workspaceManager: workspaceManager2, getActivePi, tagManager, archivedSessions } = ctx;
++  let piModTransferBusy=false;
++  electron.ipcMain.handle(IPC_CHANNELS.SESSION_HANDOFF_TRANSFER,async(event,input)=>{
++    assertTrustedSender(event);
++    if(piModTransferBusy)throw Error("TRANSFER_ALREADY_IN_PROGRESS");
++    piModTransferBusy=true;
++    try{return await require("./handoff-transfer.cjs").transfer(input,workspaceManager2,createListAllSessions(workspaceManager2));}
++    finally{piModTransferBusy=false;}
++  });
++  electron.ipcMain.handle(IPC_CHANNELS.SESSION_HISTORY_READ,async(event,target,options)=>{
++    assertTrustedSender(event);
++    if(options&&(!isObject(options)||(options.beforeByte!==void 0&&(!Number.isSafeInteger(options.beforeByte)||options.beforeByte<0))))throw Error("INVALID_HISTORY_CURSOR");
++    return await modHistoryRead(ctx,target,options);
++  });
++  electron.ipcMain.handle(IPC_CHANNELS.SESSION_HISTORY_COPY,async(event,target,text)=>{
++    assertTrustedSender(event);
++    if(typeof text!=="string"||text.length===0||text.length>5000000)throw Error("HISTORY_COPY_INVALID_SIZE");
++    await modRunBoundCommand(ctx,target,{type:"get_state"});
++    electron.clipboard.writeText(text);
++    return {ok:true,characters:text.length};
++  });
++  electron.ipcMain.handle(IPC_CHANNELS.SESSION_SET_FAST_MODE, async(event,target,enabled)=>{
++    assertTrustedSender(event);
++    if(typeof enabled!=="boolean")throw Error("FAST_REQUIRES_BOOLEAN");
++    return await modRunBoundCommand(ctx,target,{type:"set_fast_mode",enabled});
++  });
++  electron.ipcMain.handle(IPC_CHANNELS.SESSION_REMOVE_QUEUED_MESSAGE,async(event,target,kind,message)=>{
++    assertTrustedSender(event);
++    if(!["steering","followUp"].includes(kind)||typeof message!=="string"||!message||message.length>4096)throw Error("INVALID_QUEUE_SELECTION");
++    const before=await modRunBoundCommand(ctx,target,{type:"get_state"});
++    if(!Array.isArray(before?.data?.queuedMessages?.[kind])||!before.data.queuedMessages[kind].includes(message))throw Error("QUEUE_ITEM_NO_LONGER_PENDING");
++    return await modRunBoundCommand(ctx,target,{type:"remove_queued_message",queue:kind,message});
++  });
+   const startRuntime = async (runtime, sessionPath) => {
+     const settings2 = await loadAppSettings(workspaceManager2);
+     const workspace = workspaceManager2.getWorkspaces().find((item) => item.id === runtime.workspaceId);
+@@ -9085,7 +9460,8 @@ function registerSessionHandlers(ctx) {
+     if (!settings2.resumeLastSession) return null;
+     return findLatestProjectSession(await engineProjectSessionDirs(getConfiguredEngineKind(), workspace.path));
+   });
+-  electron.ipcMain.handle(IPC_CHANNELS.SESSION_GET_STATE, async () => {
++  electron.ipcMain.handle(IPC_CHANNELS.SESSION_GET_STATE, async (event, exactTarget) => {
++    if(exactTarget!==void 0){assertTrustedSender(event);return await modRunBoundCommand(ctx,exactTarget,{type:"get_state"});}
+     const pi = workspaceManager2.getActivePiManager();
+     if (!pi || pi.getStatus().status !== "running") return null;
+     return pi.sendCommand({ type: "get_state" });
+@@ -9255,6 +9631,37 @@ async function collectSessionFiles(entries, sessionsRoot, workspaceBySanitized,
+   } catch {
+   }
+ }
++const MODEL_LIST_TRANSPORT_LIMIT_ERROR = "RPC response exceeded the transport limit";
++function shouldRecoverModelListTransport(response) {
++  return response?.success === false && String(response?.error ?? "").includes(MODEL_LIST_TRANSPORT_LIMIT_ERROR);
++}
++async function fetchAvailableModelsWithProtocolRecovery(pi) {
++  const command = { type: "get_available_models" };
++  let response = await pi.sendCommand(command);
++  if (!shouldRecoverModelListTransport(response)) return response;
++  let negotiation;
++  try {
++    negotiation = await pi.sendCommand({ type: "negotiate_protocol", protocolVersion: 2 });
++  } catch (error) {
++    console.warn("[Pi Picker] RPC protocol 2 negotiation failed", error instanceof Error ? error.message : String(error));
++    return response;
++  }
++  if (!negotiation?.success) {
++    console.warn("[Pi Picker] RPC protocol 2 negotiation was rejected");
++    return response;
++  }
++  response = await pi.sendCommand(command);
++  return response;
++}
++function filterModelPickerAllowlist(models, allowedModels) {
++  const allow = new Set(allowedModels.map((value) => String(value).toLowerCase()));
++  return models.filter((model) => {
++    const provider = String(model?.provider || "");
++    const id = String(model?.id || "");
++    if (provider.toLowerCase() === "gateway portal") return true;
++    return allow.has((provider + "/" + id).toLowerCase());
++  });
++}
+ function registerModelHandlers(ctx) {
+   const { getActivePi } = ctx;
+   electron.ipcMain.handle(IPC_CHANNELS.MODEL_SET, async (_event, provider, modelId) => {
+@@ -9266,7 +9673,20 @@ function registerModelHandlers(ctx) {
+     return getActivePi().sendCommand({ type: "cycle_model" });
+   });
+   electron.ipcMain.handle(IPC_CHANNELS.MODEL_LIST_AVAILABLE, async () => {
+-    return getActivePi().sendCommand({ type: "get_available_models" });
++   const response=await fetchAvailableModelsWithProtocolRecovery(getActivePi());
++    if(!response?.success||!Array.isArray(response.data?.models))return response;
++    try {
++      const fs=require("node:fs"),path=require("node:path");
++      const home=process.env.APPDATA?path.join(process.env.APPDATA,"pi-desktop"):electron.app.getPath("userData");
++      const file=path.join(home,"model-picker-allowlist.json");
++      const config=JSON.parse(fs.readFileSync(file,"utf8"));
++      if(!Array.isArray(config?.models))throw Error("ALLOWLIST_MISSING_MODELS");
++      const models=filterModelPickerAllowlist(response.data.models,config.models);
++      return {...response,data:{...response.data,models}};
++    } catch(e) {
++      console.warn("[Pi Picker] allowlist unavailable",e instanceof Error?e.message:String(e));
++      return response;
++    }
+   });
+   electron.ipcMain.handle(IPC_CHANNELS.THINKING_SET_LEVEL, async (_event, level) => {
+     if (!isString(level)) throw new Error("level must be a string");
+@@ -11953,6 +12373,330 @@ function dialogTextOptions(options) {
+     ...Array.isArray(options.filters) && { filters: options.filters }
+   };
+ }
++// Mod Provider Account Analytics v1: authoritative provider ledger adapters.
++const MOD_PROVIDER_ACCOUNT_ADAPTERS = Object.freeze({
++  "Gateway Portal": Object.freeze({
++    id: "gateway-portal",
++    provider: "Gateway Portal",
++    origin: "https://ai.thirx.com",
++    loginUrl: "https://ai.thirx.com/login",
++    analyticsPath: "/api/user/analytics",
++    partition: "persist:pi-provider-account-gateway-portal-v1",
++    supportedRanges: Object.freeze({ "7": "7d", "30": "30d" })
++  })
++});
++function modProviderAccountAdapter(provider) {
++  return MOD_PROVIDER_ACCOUNT_ADAPTERS[String(provider || "")] ?? null;
++}
++function modProviderUsageExecutable() {
++  const localAppData = process.env.LOCALAPPDATA;
++  if (localAppData) {
++    const candidate = path.join(localAppData, "omp", "omp.exe");
++    if (fs.existsSync(candidate)) return candidate;
++  }
++  return "omp";
++}
++function modProviderUsageSafeLimits(limits) {
++  if (!Array.isArray(limits)) return [];
++  const out = [];
++  const seen = new Set();
++  for (const limit of limits.slice(0, 64)) {
++    const sharedGroup = typeof limit?.scope?.sharedGroup === "string" ? limit.scope.sharedGroup : null;
++    const key = sharedGroup ? "shared:" + sharedGroup : "id:" + (typeof limit?.id === "string" ? limit.id : JSON.stringify([limit?.label, limit?.window?.id]));
++    if (seen.has(key)) continue;
++    seen.add(key);
++    const amount = limit && typeof limit.amount === "object" ? limit.amount : {};
++    const window = limit && typeof limit.window === "object" ? limit.window : {};
++    out.push({
++      id: typeof limit?.id === "string" ? limit.id : "",
++      label: typeof limit?.label === "string" ? limit.label : "Usage",
++      status: typeof limit?.status === "string" ? limit.status : null,
++      sharedGroup,
++      window: {
++        id: typeof window.id === "string" ? window.id : null,
++        label: typeof window.label === "string" ? window.label : null,
++        durationMs: Number.isFinite(window.durationMs) ? window.durationMs : null,
++        resetsAt: Number.isFinite(window.resetsAt) ? window.resetsAt : null
++      },
++      amount: {
++        unit: typeof amount.unit === "string" ? amount.unit : "unknown",
++        used: Number.isFinite(amount.used) ? amount.used : null,
++        limit: Number.isFinite(amount.limit) ? amount.limit : null,
++        remaining: Number.isFinite(amount.remaining) ? amount.remaining : null,
++        usedFraction: Number.isFinite(amount.usedFraction) ? amount.usedFraction : null,
++        remainingFraction: Number.isFinite(amount.remainingFraction) ? amount.remainingFraction : null
++      }
++    });
++  }
++  return out;
++}
++async function modProviderNativeUsageFetch(provider) {
++  if (!/^[a-z0-9._-]+$/i.test(provider)) {
++    return { supported: false, provider, connected: false, source: "OMP_PROVIDER_USAGE", reason: "INVALID_PROVIDER_ID" };
++  }
++  const executable = modProviderUsageExecutable();
++  const args = ["usage", "--json", "--redact", "--provider", provider];
++  let stdout = "";
++  try {
++    stdout = await new Promise((resolve, reject) => {
++      child_process.execFile(executable, args, {
++        windowsHide: true,
++        timeout: 30000,
++        maxBuffer: 4 * 1024 * 1024,
++        env: process.env
++      }, (error, out, err) => {
++        if (error) {
++          const wrapped = new Error("OMP_USAGE_FAILED:" + (error.code ?? error.message));
++          wrapped.stderr = String(err || "").slice(0, 1000);
++          reject(wrapped);
++          return;
++        }
++        resolve(String(out || ""));
++      });
++    });
++  } catch (error) {
++    return {
++      supported: true,
++      provider,
++      connected: false,
++      source: "OMP_PROVIDER_USAGE",
++      reason: "USAGE_PROBE_FAILED",
++      error: error instanceof Error ? error.message : String(error)
++    };
++  }
++  let payload;
++  try { payload = JSON.parse(stdout); }
++  catch {
++    return { supported: true, provider, connected: false, source: "OMP_PROVIDER_USAGE", reason: "INVALID_USAGE_JSON" };
++  }
++  const report = Array.isArray(payload?.reports) ? payload.reports.find((item) => item?.provider === provider) : null;
++  const noUsage = Array.isArray(payload?.accountsWithoutUsage) && payload.accountsWithoutUsage.some((item) => item?.provider === provider);
++  if (!report) {
++    return {
++      supported: true,
++      provider,
++      connected: false,
++      source: "OMP_PROVIDER_USAGE",
++      fetchedAt: Number.isFinite(payload?.generatedAt) ? payload.generatedAt : Date.now(),
++      reason: noUsage ? "ACCOUNT_WITHOUT_NATIVE_USAGE" : "NO_NATIVE_USAGE_REPORT"
++    };
++  }
++  return {
++    supported: true,
++    provider,
++    connected: true,
++    source: "OMP_PROVIDER_USAGE",
++    fetchedAt: Number.isFinite(report.fetchedAt) ? report.fetchedAt : Number.isFinite(payload?.generatedAt) ? payload.generatedAt : Date.now(),
++    limits: modProviderUsageSafeLimits(report.limits),
++    capacity: Array.isArray(payload?.capacity?.[provider]) ? payload.capacity[provider].slice(0, 16) : [],
++    metadata: {
++      planType: typeof report?.metadata?.planType === "string" ? report.metadata.planType : null,
++      endpoint: typeof report?.metadata?.endpoint === "string" ? report.metadata.endpoint : null,
++      source: typeof report?.metadata?.source === "string" ? report.metadata.source : null
++    }
++  };
++}
++
++async function modProviderNativeUsageList() {
++  const executable = modProviderUsageExecutable();
++  let stdout = "";
++  try {
++    stdout = await new Promise((resolve, reject) => {
++      child_process.execFile(executable, ["usage", "--json", "--redact"], {
++        windowsHide: true,
++        timeout: 30000,
++        maxBuffer: 4 * 1024 * 1024,
++        env: process.env
++      }, (error, out) => error ? reject(error) : resolve(String(out || "")));
++    });
++  } catch {
++    return { supported: true, source: "OMP_PROVIDER_USAGE", providers: Object.keys(MOD_PROVIDER_ACCOUNT_ADAPTERS) };
++  }
++  let payload;
++  try { payload = JSON.parse(stdout); } catch { payload = {}; }
++  const providers = new Set(Object.keys(MOD_PROVIDER_ACCOUNT_ADAPTERS));
++  for (const report of Array.isArray(payload?.reports) ? payload.reports : []) {
++    if (typeof report?.provider === "string" && report.provider) providers.add(report.provider);
++  }
++  for (const entry of Array.isArray(payload?.accountsWithoutUsage) ? payload.accountsWithoutUsage : []) {
++    if (typeof entry?.provider === "string" && entry.provider) providers.add(entry.provider);
++  }
++  return {
++    supported: true,
++    source: "OMP_PROVIDER_USAGE",
++    fetchedAt: Number.isFinite(payload?.generatedAt) ? payload.generatedAt : Date.now(),
++    providers: [...providers].sort()
++  };
++}
++
++function modProviderAccountRange(adapter, requestedRange) {
++  const requested = String(requestedRange || "7");
++  const apiRange = adapter.supportedRanges?.[requested] ?? "30d";
++  return { requested, apiRange, periodExact: Object.hasOwn(adapter.supportedRanges || {}, requested) };
++}
++function modProviderAccountMetric(value) {
++  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
++}
++function modProviderAccountValidatePayload(provider, requestedRange, payload) {
++  const adapter = modProviderAccountAdapter(provider);
++  if (!adapter) return { supported: false, provider: String(provider || ""), connected: false, source: "UNSUPPORTED" };
++  const rangeInfo = modProviderAccountRange(adapter, requestedRange);
++  const data = payload && typeof payload === "object" ? payload.data : null;
++  if (!data || typeof data !== "object" || payload.status !== "ok") throw new Error("PROVIDER_ANALYTICS_PAYLOAD_INVALID");
++  const allTimeTokens = modProviderAccountMetric(data.all_time_tokens);
++  const periodTokens = modProviderAccountMetric(data.period_tokens);
++  const periodRequests = modProviderAccountMetric(data.period_requests);
++  if (allTimeTokens === null) throw new Error("PROVIDER_ANALYTICS_ALL_TIME_MISSING");
++  return {
++    supported: true,
++    provider: adapter.provider,
++    adapterId: adapter.id,
++    connected: true,
++    source: "PROVIDER_ACCOUNT",
++    fetchedAt: Date.now(),
++    requestedRange: rangeInfo.requested,
++    apiRange: rangeInfo.apiRange,
++    periodExact: rangeInfo.periodExact,
++    allTimeTokens,
++    periodTokens: rangeInfo.periodExact ? periodTokens : null,
++    periodRequests: rangeInfo.periodExact ? periodRequests : null,
++    labels: rangeInfo.periodExact && Array.isArray(data.labels) ? data.labels.slice(0, 100) : [],
++    tokens: rangeInfo.periodExact && Array.isArray(data.tokens) ? data.tokens.slice(0, 100) : [],
++    requests: rangeInfo.periodExact && Array.isArray(data.requests) ? data.requests.slice(0, 100) : []
++  };
++}
++async function modProviderAccountFetch(provider, requestedRange) {
++  if (provider === "__list__") return await modProviderNativeUsageList();
++  const adapter = modProviderAccountAdapter(provider);
++  if (!adapter) return await modProviderNativeUsageFetch(String(provider || ""));
++  const rangeInfo = modProviderAccountRange(adapter, requestedRange);
++  const ses = electron.session.fromPartition(adapter.partition);
++  if (!ses || typeof ses.fetch !== "function") {
++    return { supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "SESSION_FETCH_UNAVAILABLE" };
++  }
++  let response;
++  try {
++    response = await ses.fetch(adapter.origin + adapter.analyticsPath + "?range=" + encodeURIComponent(rangeInfo.apiRange), {
++      method: "GET",
++      headers: { Accept: "application/json", "User-Agent": "Pi-Desktop-Provider-Analytics" },
++      credentials: "include",
++      cache: "no-store"
++    });
++  } catch (error) {
++    return { supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "NETWORK_ERROR", error: error instanceof Error ? error.message : String(error) };
++  }
++  if (response.status === 401 || response.status === 403) {
++    return { supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "NOT_AUTHENTICATED" };
++  }
++  if (!response.ok) {
++    return { supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "HTTP_" + response.status };
++  }
++  let payload;
++  try { payload = await response.json(); }
++  catch { return { supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "INVALID_JSON" }; }
++  try { return modProviderAccountValidatePayload(provider, requestedRange, payload); }
++  catch (error) {
++    return { supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "INVALID_PAYLOAD", error: error instanceof Error ? error.message : String(error) };
++  }
++}
++function modProviderAccountAllowedAuthUrl(urlString, adapter) {
++  try {
++    const url = new URL(urlString);
++    if (url.protocol !== "https:") return false;
++    return url.hostname === "ai.thirx.com" || url.hostname === "discord.com" || url.hostname.endsWith(".discord.com");
++  } catch {
++    return false;
++  }
++}
++async function modProviderAccountConnect(provider, requestedRange) {
++  const adapter = modProviderAccountAdapter(provider);
++  if (!adapter) return { supported: false, provider: String(provider || ""), connected: false, source: "UNSUPPORTED" };
++  const existing = await modProviderAccountFetch(provider, requestedRange);
++  if (existing.connected) return existing;
++  const ses = electron.session.fromPartition(adapter.partition);
++  return await new Promise((resolve) => {
++    let settled = false;
++    let timer = null;
++    let probeInFlight = false;
++    const finish = (value) => {
++      if (settled) return;
++      settled = true;
++      if (timer) clearInterval(timer);
++      resolve(value);
++    };
++    const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : void 0;
++    const authWindow = new electron.BrowserWindow({
++      width: 960,
++      height: 760,
++      minWidth: 720,
++      minHeight: 560,
++      title: "Connect Gateway Portal",
++      parent,
++      modal: false,
++      show: false,
++      backgroundColor: "#111111",
++      webPreferences: {
++        partition: adapter.partition,
++        contextIsolation: true,
++        nodeIntegration: false,
++        sandbox: true,
++        webSecurity: true,
++        allowRunningInsecureContent: false
++      }
++    });
++    const probe = async () => {
++      if (settled || probeInFlight) return;
++      probeInFlight = true;
++      try {
++        const value = await modProviderAccountFetch(provider, requestedRange);
++        if (value.connected) {
++          finish(value);
++          if (!authWindow.isDestroyed()) authWindow.close();
++        }
++      } finally {
++        probeInFlight = false;
++      }
++    };
++    authWindow.webContents.setWindowOpenHandler(({ url }) => {
++      if (modProviderAccountAllowedAuthUrl(url, adapter)) {
++        void authWindow.loadURL(url);
++      }
++      return { action: "deny" };
++    });
++    authWindow.webContents.on("will-navigate", (event, url) => {
++      if (!modProviderAccountAllowedAuthUrl(url, adapter)) event.preventDefault();
++    });
++    authWindow.webContents.on("did-navigate", () => void probe());
++    authWindow.webContents.on("did-navigate-in-page", () => void probe());
++    authWindow.webContents.on("did-finish-load", () => void probe());
++    authWindow.once("ready-to-show", () => {
++      authWindow.show();
++      authWindow.focus();
++    });
++    authWindow.once("closed", () => {
++      if (!settled) finish({ supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "AUTH_WINDOW_CLOSED" });
++    });
++    timer = setInterval(() => void probe(), 1500);
++    timer.unref?.();
++    void authWindow.loadURL(adapter.loginUrl).catch((error) => {
++      finish({ supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "LOGIN_LOAD_FAILED", error: error instanceof Error ? error.message : String(error) });
++      if (!authWindow.isDestroyed()) authWindow.close();
++    });
++  });
++}
++async function modProviderAccountDisconnect(provider) {
++  const adapter = modProviderAccountAdapter(provider);
++  if (!adapter) return { supported: false, provider: String(provider || ""), connected: false, source: "UNSUPPORTED" };
++  const ses = electron.session.fromPartition(adapter.partition);
++  try {
++    const cookies = await ses.cookies.get({ domain: "ai.thirx.com" });
++    await Promise.all(cookies.map((cookie) => ses.cookies.remove(adapter.origin + (cookie.path || "/"), cookie.name).catch(() => {})));
++    await ses.clearStorageData({ origin: adapter.origin, storages: ["localstorage", "sessionstorage"] }).catch(() => {});
++  } catch {}
++  return { supported: true, provider: adapter.provider, connected: false, source: "PROVIDER_ACCOUNT", reason: "DISCONNECTED" };
++}
++
++
+ function registerSystemHandlers(ctx) {
+   const { approvedAttachmentPaths } = ctx;
+   electron.ipcMain.handle(IPC_CHANNELS.SYSTEM_OPEN_DIALOG, async (_event, options) => {
+@@ -12002,8 +12746,20 @@ function registerSystemHandlers(ctx) {
+   electron.ipcMain.handle(IPC_CHANNELS.ACTIVITY_GET_STATS, async () => {
+     return activityStatsStore.computeStats();
+   });
++  electron.ipcMain.handle(IPC_CHANNELS.PROVIDER_ACCOUNT_ANALYTICS_GET, async (_event, provider, range) => {
++    if (!isString(provider) || !isString(range)) throw new Error("provider and range must be strings");
++    return await modProviderAccountFetch(provider, range);
++  });
++  electron.ipcMain.handle(IPC_CHANNELS.PROVIDER_ACCOUNT_ANALYTICS_CONNECT, async (_event, provider, range) => {
++    if (!isString(provider) || !isString(range)) throw new Error("provider and range must be strings");
++    return await modProviderAccountConnect(provider, range);
++  });
++  electron.ipcMain.handle(IPC_CHANNELS.PROVIDER_ACCOUNT_ANALYTICS_DISCONNECT, async (_event, provider) => {
++    if (!isString(provider)) throw new Error("provider must be a string");
++    return await modProviderAccountDisconnect(provider);
++  });
+ }
+-const UPDATE_REPO = "FaqFirebase/pi-desktop";
++const UPDATE_REPO = "Tibetan777/pi-desktop";
+ const UPDATE_CHECK_TIMEOUT_MS = 8e3;
+ async function checkForUpdate() {
+   const currentVersion = electron.app.getVersion();
+@@ -12346,6 +13102,7 @@ function isVoicePrecision(value) {
+ function registerVoiceHandlers(ctx) {
+   const { workspaceManager: workspaceManager2, broadcast } = ctx;
+   let activeInstall = null;
++
+   async function buildStatus() {
+     const settings2 = await loadAppSettings(workspaceManager2);
+     return {
+@@ -12360,6 +13117,7 @@ function registerVoiceHandlers(ctx) {
+   electron.ipcMain.handle(IPC_CHANNELS.VOICE_STATUS, async () => buildStatus());
+   electron.ipcMain.handle(IPC_CHANNELS.VOICE_INSTALL, async (event, request) => {
+     assertTrustedSender(event);
++
+     if (!isObject(request)) throw new Error("install request must be an object");
+     const { modelId, precision } = request;
+     if (!isString(modelId)) throw new Error("modelId must be a string");
+@@ -12407,6 +13165,7 @@ function registerVoiceHandlers(ctx) {
+   });
+   electron.ipcMain.handle(IPC_CHANNELS.VOICE_REMOVE, async (event, modelId) => {
+     assertTrustedSender(event);
++
+     if (!isString(modelId)) throw new Error("modelId must be a string");
+     await removeVoiceModel(modelId);
+     const settings2 = await loadAppSettings(workspaceManager2);
+@@ -12422,7 +13181,9 @@ function registerVoiceHandlers(ctx) {
+     if (modelId !== null && !isString(modelId)) throw new Error("modelId must be a string or null");
+     if (modelId !== null && !getVoiceModel(modelId)) throw new Error(`Unknown voice model: ${modelId}`);
+     if (!isVoicePrecision(precision)) throw new Error("precision must be int8 or fp16");
++
+     await saveAppSettings({ voiceModel: modelId, voicePrecision: precision });
++
+     return buildStatus();
+   });
+ }

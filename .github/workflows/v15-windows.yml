@@ -1,0 +1,56 @@
+name: V15 Windows Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v15-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-build:
+    name: Verify and build Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        shell: pwsh
+        run: |
+          $tests = Get-ChildItem src,resources -Recurse -Filter *.test.ts | ForEach-Object { $_.FullName }
+          npx --no-install tsx --test @tests
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build V15 overlay
+        run: npm run build
+
+      - name: Package NSIS and portable
+        run: npx --no-install electron-builder --win nsis portable --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pi-desktop-v15-windows-x64
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,1059 @@
+diff --git a/out/renderer/assets/index-Ze1u3kee.js b/out/renderer/assets/index-Ze1u3kee.js
+index abe1781..ac925c3 100644
+--- a/out/renderer/assets/index-Ze1u3kee.js
++++ b/out/renderer/assets/index-Ze1u3kee.js
+@@ -25975,6 +25975,17 @@ function Sidebar() {
+                   title: t2("sidebar.tools.allWorkflowsTitle")
+                 }
+               ),
++              /* @__PURE__ */ jsxRuntimeExports.jsx(
++                SidebarItem,
++                {
++                  compact: true,
++                  icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Activity, { size: 13 }),
++                  label: "Usage",
++                  active: toolViewShowing("usage"),
++                  onClick: () => openToolView("usage"),
++                  title: "Input / Output / Cache by provider and model"
++                }
++              ),
+               /* @__PURE__ */ jsxRuntimeExports.jsx(
+                 SidebarItem,
+                 {
+@@ -26787,10 +26798,20 @@ function filterModels(models2, query) {
+   });
+ }
+ function thinkingLevels(model) {
+-  const efforts = model?.thinking?.efforts?.filter(
++  const rawThinking = Array.isArray(model?.thinking) ? model.thinking : model?.thinking?.efforts;
++  const efforts = rawThinking?.filter(
+     (level) => typeof level === "string" && level.length > 0
+   );
+-  return efforts && efforts.length > 0 ? ["off", ...efforts.filter((level) => level !== "off")] : ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
++  if (efforts && efforts.length > 0) return [...new Set(efforts)];
++  if (model?.thinking === null || model?.reasoning === false) return [];
++  return ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
++}
++function safeThinkingLevel(model, current) {
++  const levels = thinkingLevels(model);
++  if (levels.length === 0) return null;
++  if (typeof current === "string" && levels.includes(current)) return current;
++  if (levels.includes("medium")) return "medium";
++  return levels[0];
+ }
+ function stepThinkingLevel(levels, current, step) {
+   const index2 = levels.indexOf(current);
+@@ -26881,11 +26902,13 @@ function ModelSelector({ className, compact = false }) {
+   }, [highlighted]);
+   const highlightedModel = filteredModels[highlighted];
+   const draftFor = (model) => model && effortDraft?.model.id === model.id && effortDraft.model.provider === model.provider ? effortDraft.level : void 0;
+-  const displayedEffort = draftFor(highlightedModel) ?? sessionState?.thinkingLevel ?? "medium";
++  const highlightedThinkingLevels = thinkingLevels(highlightedModel);
++  const displayedEffort = draftFor(highlightedModel) ?? safeThinkingLevel(highlightedModel, sessionState?.thinkingLevel) ?? "";
+   const handleSelect = async (model) => {
+     const effort = draftFor(model);
++    const normalizedEffort = effort ?? safeThinkingLevel(model, sessionState?.thinkingLevel);
+     await setModel(model.provider, model.id);
+-    if (effort !== void 0) await setThinkingLevel(effort);
++    if (normalizedEffort && normalizedEffort !== sessionState?.thinkingLevel) await setThinkingLevel(normalizedEffort);
+     setRecency(recordModelUse(model));
+     close();
+   };
+@@ -26900,8 +26923,9 @@ function ModelSelector({ className, compact = false }) {
+       e.preventDefault();
+       e.stopPropagation();
+       if (loading || piStatus !== "running" || !highlightedModel) return;
++      if (highlightedThinkingLevels.length === 0) return;
+       const next = stepThinkingLevel(
+-        thinkingLevels(highlightedModel),
++        highlightedThinkingLevels,
+         displayedEffort,
+         e.key === "ArrowRight" ? 1 : -1
+       );
+@@ -26979,7 +27003,7 @@ function ModelSelector({ className, compact = false }) {
+             }
+           )
+         ] }),
+-        highlightedModel && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1 border-b border-border px-3 py-2 text-xs text-muted", "aria-live": "polite", children: [
++        highlightedModel && highlightedThinkingLevels.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1 border-b border-border px-3 py-2 text-xs text-muted", "aria-live": "polite", children: [
+           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "min-w-0 flex-1 truncate", children: t2("thinking.effortWithLevel", { level: displayedEffort }) }),
+           /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowLeft, { size: 12, "aria-hidden": "true" }),
+           /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowRight, { size: 12, "aria-hidden": "true" })
+@@ -27239,6 +27263,7 @@ function getWorker(engineKey) {
+   return created;
+ }
+ function transcribeAudio(audio, model, precision) {
++  if (model && (model.engine === "native-whisper" || model.engine === "native-qwen")) return window.piDesktop.voice.transcribeNative(audio);
+   const id2 = nextRequestId++;
+   const request = { id: id2, audio, model, precision, wasmBaseUrl: WASM_BASE_URL };
+   const target = getWorker(voiceEngineKey(model.id, precision));
+@@ -27302,6 +27327,7 @@ function useVoiceDictation(handlers2) {
+     clearTimer();
+     recorderRef.current?.cancel();
+     recorderRef.current = null;
++    void window.piDesktop.voice.endNative().catch(() => {});
+     setPhase("idle");
+   }, []);
+   reactExports.useEffect(() => cancel, [cancel]);
+@@ -27344,6 +27370,7 @@ function useVoiceDictation(handlers2) {
+       console.error("[voice] transcription failed", err);
+       setError(err instanceof Error ? err.message : String(err));
+     } finally {
++      void window.piDesktop.voice.endNative().catch(() => {});
+       if (!session.discarded) setPhase("idle");
+     }
+   }, [model, status2]);
+@@ -27355,9 +27382,13 @@ function useVoiceDictation(handlers2) {
+     stoppedRef.current = false;
+     try {
+       const recorder = new VoiceRecorder();
++      if (model.engine === "native-whisper" || model.engine === "native-qwen") {
++        void window.piDesktop.voice.beginNative().catch(() => {});
++      }
+       await recorder.start();
+       if (stoppedRef.current) {
+         recorder.cancel();
++        void window.piDesktop.voice.endNative().catch(() => {});
+         return;
+       }
+       recorderRef.current = recorder;
+@@ -27399,6 +27430,7 @@ function useVoiceDictation(handlers2) {
+       }, TICK_MS);
+       if (startedByHold && !heldRef.current) void finalize();
+     } catch (err) {
++      void window.piDesktop.voice.endNative().catch(() => {});
+       setError(err instanceof Error ? err.message : String(err));
+       setPhase("idle");
+     } finally {
+@@ -27442,7 +27474,7 @@ function ThinkingLevelSelector({ className }) {
+   const [isOpen, setIsOpen2] = reactExports.useState(false);
+   const ref = reactExports.useRef(null);
+   const levels = thinkingLevels(sessionState?.model);
+-  const currentLevel = sessionState?.thinkingLevel ?? "medium";
++  const currentLevel = safeThinkingLevel(sessionState?.model, sessionState?.thinkingLevel) ?? "";
+   reactExports.useEffect(() => {
+     if (!isOpen) return;
+     const handleClick = (event) => {
+@@ -27451,7 +27483,7 @@ function ThinkingLevelSelector({ className }) {
+     document.addEventListener("mousedown", handleClick);
+     return () => document.removeEventListener("mousedown", handleClick);
+   }, [isOpen]);
+-  if (piStatus !== "running") return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, {});
++  if (piStatus !== "running" || levels.length === 0) return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, {});
+   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref, className: clsx("relative", className), children: [
+     /* @__PURE__ */ jsxRuntimeExports.jsxs(
+       "button",
+@@ -94501,7 +94533,396 @@ function useElementMeasure(read, fallback2) {
+   const ref = reactExports.useMemo(() => createMeasureRef(read, setValue), [read]);
+   return [value, ref];
+ }
++function selectedSessionTarget(state) {
++  const runtime = state.activeSessionRuntimeId ? state.sessionRuntimes[state.activeSessionRuntimeId] : void 0;
++  if (!runtime) {
++    if (state.activeSessionRuntimeId) throw new Error("PI_NATIVE_EXACT_TARGET_UNAVAILABLE");
++    return void 0;
++  }
++  if (runtime.workspaceId !== state.activeWorkspace?.id || !runtime.sessionId || !runtime.sessionPath) throw new Error("PI_NATIVE_EXACT_TARGET_UNAVAILABLE");
++  return { runtimeId: runtime.runtimeId, workspaceId: runtime.workspaceId, sessionId: runtime.sessionId, sessionPath: runtime.sessionPath };
++}
++function NativeReadableHistory(){
++ const runtimeId=useAppStore(s=>s.activeSessionRuntimeId);
++ const runtimes=useAppStore(s=>s.sessionRuntimes);
++ const workspaceId=useAppStore(s=>s.activeWorkspace?.id);
++ const state=useAppStore(s=>s.sessionState);
++ const rt=runtimeId?runtimes[runtimeId]:null;
++ const valid=!!(rt&&rt.workspaceId===workspaceId&&rt.sessionId&&rt.sessionPath&&state?.sessionId===rt.sessionId);
++ const [rows,setRows]=reactExports.useState([]);
++ const [cursor,setCursor]=reactExports.useState(null);
++ const [fileBytes,setFileBytes]=reactExports.useState(0);
++ const [raw,setRaw]=reactExports.useState(false);
++ const [loading,setLoading]=reactExports.useState(false);
++ const [error,setError]=reactExports.useState("");
++ const [info,setInfo]=reactExports.useState("");
++ const [displayLimit,setDisplayLimit]=reactExports.useState(160);
++ const [showOldest,setShowOldest]=reactExports.useState(false);
++ const generation=reactExports.useRef(0),busy=reactExports.useRef(false),scroll=reactExports.useRef(null);
++ const target=()=>({runtimeId:rt.runtimeId||runtimeId,workspaceId,sessionId:rt.sessionId,sessionPath:rt.sessionPath});
++ const fetchPage=async(before,reset)=>{
++  if(!valid||busy.current)return;
++  busy.current=true;const ticket=++generation.current;setLoading(true);setError("");setInfo("");
++  try{
++   const page=await window.piDesktop.session.readHistory(target(),before===null?{}:{beforeByte:before});
++   if(ticket!==generation.current)return;
++   if(!page||page.sessionId!==rt.sessionId||!Array.isArray(page.rows))throw Error("HISTORY_SESSION_MISMATCH");
++   setRows(v=>reset?page.rows:[...page.rows,...v].slice(-10000));
++   setCursor(page.nextBeforeByte);
++   setFileBytes(page.fileBytes||0);
++   setDisplayLimit(n=>reset?160:raw?Math.min(10000,n+page.rows.length):160);setShowOldest(reset?false:!raw);
++   if(scroll.current)scroll.current.scrollTop=0;
++  }catch(e){if(ticket===generation.current)setError(e instanceof Error?e.message:String(e))}
++  finally{if(ticket===generation.current){busy.current=false;setLoading(false)}}
++ };
++ reactExports.useEffect(()=>{
++  generation.current++;busy.current=false;setRows([]);setCursor(null);setFileBytes(0);setError("");setInfo("");setLoading(false);setDisplayLimit(160);setRaw(false);setShowOldest(false);
++  if(valid){const id=setTimeout(()=>{void fetchPage(null,true)},0);return ()=>{clearTimeout(id);generation.current++;busy.current=false}}
++  return ()=>{generation.current++;busy.current=false};
++ },[runtimeId,workspaceId,valid]);
++ const c=(tag,props,children)=>reactExports.createElement(tag,props,children);
++ const allowed=raw?rows:rows.filter(x=>x.role==="user"||x.role==="assistant");
++ const visible=showOldest?allowed.slice(0,displayLimit):allowed.slice(-displayLimit);
++ const canLoadMore=displayLimit<allowed.length||(cursor!==null&&cursor>0);
++ const loadMore=()=>{if(loading)return;if(displayLimit<allowed.length){setDisplayLimit(n=>n+280);if(scroll.current)scroll.current.scrollTop=0;}else if(cursor!==null&&cursor>0){void fetchPage(cursor,false);}};
++ const buttonStyle={border:"1px solid var(--border,#554b48)",padding:"3px 8px",borderRadius:5,fontSize:11,height:26,lineHeight:"17px",whiteSpace:"nowrap",boxSizing:"border-box"};
++ const packed=[];
++ for(const item of visible){
++  if(raw&&item.role==="tool"){
++   const last=packed[packed.length-1];
++   if(last&&last.group&&last.entries.length<16)last.entries.push(item);
++   else packed.push({group:true,id:"group-"+item.id,entries:[item]});
++  }else packed.push(item);
++ }
++ const makeBubble=(item,i)=>{
++  const isUser=item.role==="user",isAgent=item.role==="assistant";
++  const txt=String(item.text||"");
++  const expanded=txt.length>1400;
++  const body=expanded?c("details",{key:"body"},[
++   c("summary",{key:"preview",style:{cursor:"pointer",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}},txt.slice(0,500)+"… (expand)"),
++   c("pre",{key:"full",style:{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",marginTop:8,fontFamily:"inherit"}},txt)
++  ]):c("pre",{key:"body",style:{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",fontFamily:"inherit"}},txt);
++  return c("div",{key:item.id||i,style:{display:"flex",width:"100%",justifyContent:isUser?"flex-end":isAgent?"flex-start":"center",marginBottom:12,minWidth:0}},
++    c("article",{style:{boxSizing:"border-box",maxWidth:"76%",minWidth:0,width:"fit-content",border:"1px solid var(--border,#554b48)",borderRadius:10,padding:"10px 12px",background:isUser?"var(--surface-hover,#382e29)":"var(--surface,#27211d)",overflowWrap:"anywhere",fontSize:12}},[
++      c("div",{key:"meta",style:{fontSize:10,opacity:.7,marginBottom:7}},(isUser?"You":isAgent?"Agent":"Tool")+" · "+(item.at||"")+(item.truncated?" · excerpt":"")),
++      body
++    ]));
++ };
++ const makeTool=(group,i)=>{
++  const list=group.entries||[];
++  const calls=list.filter(x=>x.kind==="call").length;
++  return c("details",{key:group.id||i,style:{margin:"8px 0",padding:"8px 11px",maxWidth:"76%",boxSizing:"border-box",border:"1px solid var(--border,#554b48)",borderRadius:9,background:"var(--surface,#24201d)",fontSize:12}},
++  [c("summary",{key:"sum",style:{cursor:"pointer",opacity:.85}},"Tool activity · "+calls+" calls / "+(list.length-calls)+" results · "+(list[0]?.at||"")+" (expand)"),
++   ...list.map((x,j)=>c("div",{key:x.id||j,style:{borderTop:"1px solid var(--border,#554b48)",marginTop:8,paddingTop:8}},[
++     c("div",{key:"label",style:{fontSize:10,opacity:.7}},(x.kind==="call"?"Call":"Result")+" · "+x.at),
++     c("pre",{key:"text",style:{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",fontSize:11,fontFamily:"inherit"}},x.text)
++   ]))
++  ]);
++ };
++ const copy=async()=>{
++  if(!valid||loading)return;
++  const value=allowed.map(x=>"["+x.at+"] "+x.role.toUpperCase()+"\n"+x.text).join("\n\n");
++  if(!value){setError("NO_HISTORY_TO_COPY");return}
++  try{
++   const resp=await window.piDesktop.session.copyHistory(target(),value);
++   if(resp?.ok!==true)throw Error("NATIVE_CLIPBOARD_FAILED");
++   setInfo("Copied "+resp.characters+" characters from "+allowed.length+" loaded history entries.");
++  }catch(e){setError(e instanceof Error?e.message:String(e))}
++ };
++ return c("section",{style:{flex:"1 1 0",minHeight:0,display:"flex",flexDirection:"column",overflow:"hidden",background:"var(--background,#1e1917)",width:"100%"}},[
++  c("div",{key:"header",style:{flexShrink:0,display:"flex",flexWrap:"wrap",alignItems:"center",gap:6,padding:"7px 12px",borderBottom:"1px solid var(--border,#554b48)"}},[
++   c("strong",{key:"title",style:{marginRight:8,fontSize:12}},"History Chat"),
++   c("button",{key:"clean",type:"button",onClick:()=>setRaw(false),style:{...buttonStyle,opacity:raw?.65:1}},"Clean chat"),
++   c("button",{key:"raw",type:"button",onClick:()=>setRaw(true),style:{...buttonStyle,opacity:raw?1:.65}},"Tool details"),
++   c("button",{key:"more",type:"button",disabled:loading||!canLoadMore,onClick:loadMore,style:buttonStyle},"Load more"),
++   c("button",{key:"refresh",type:"button",disabled:loading,onClick:()=>void fetchPage(null,true),style:buttonStyle},"Refresh"),
++   c("button",{key:"copy",type:"button",disabled:loading||!allowed.length,onClick:()=>void copy(),style:buttonStyle},"Copy history")
++  ]),
++  c("div",{key:"status",style:{flexShrink:0,padding:"6px 16px",fontSize:11,opacity:.75}},loading?"Loading journal…":rows.length+" entries loaded · "+allowed.length+" in "+(raw?"Tool details":"Clean chat")+" · "+(fileBytes?Math.round(fileBytes/1048576)+" MiB journal":"no journal size")+ (cursor===0?" · beginning reached":" · older records available")),
++  error&&c("div",{key:"error",role:"alert",style:{padding:"6px 16px",color:"#e1aa7a"}},error),
++  info&&c("div",{key:"info",role:"status",style:{padding:"6px 16px"}},info),
++  c("div",{key:"scroll",ref:scroll,style:{flex:"1 1 0",minHeight:0,overflowY:"auto",overflowX:"hidden",overscrollBehavior:"contain",padding:"16px 20px"}},packed.map((x,i)=>x.group?makeTool(x,i):makeBubble(x,i)))
++ ]);
++}
++function NativeSessionControls() {
++  const sessionState = useAppStore((s) => s.sessionState);
++  const runtimeId = useAppStore((s) => s.activeSessionRuntimeId);
++  const runtimes = useAppStore((s) => s.sessionRuntimes);
++  const loading = useAppStore((s) => s.sessionLoading);
++  const activeWorkspaceId = useAppStore((s) => s.activeWorkspace?.id);
++  const [open, setOpen] = reactExports.useState(false);
++  const [busy, setBusy] = reactExports.useState("");
++  const [error, setError] = reactExports.useState("");
++  const [confirmFast, setConfirmFast] = reactExports.useState(false);
++  const [leasePrompt,setLeasePrompt]=reactExports.useState("");
++  const actionEpoch = reactExports.useRef(0);
++  const inFlight = reactExports.useRef(false);
++  reactExports.useEffect(() => {
++    actionEpoch.current++;
++    inFlight.current = false;
++    setOpen(false); setError(""); setBusy(""); setConfirmFast(false);setLeasePrompt("");
++  }, [runtimeId, activeWorkspaceId]);
++  const runtime = runtimeId ? runtimes[runtimeId] : null;
++  const exactSession = !!(runtime && runtime.workspaceId === activeWorkspaceId && runtime.sessionId && runtime.sessionPath && sessionState?.sessionId === runtime.sessionId);
++  const working = !!(runtime?.isStreaming || runtime?.activity === "working");
++  const fastEnabled = exactSession && sessionState?.fastModeEnabled === true;
++  const fastActive = exactSession && sessionState?.fastModeActive === true;
++  const queue = exactSession ? sessionState?.queuedMessages : null;
++  const steering = Array.isArray(queue?.steering) ? queue.steering : [];
++  const followUp = Array.isArray(queue?.followUp) ? queue.followUp : [];
++  const phases = exactSession && Array.isArray(sessionState?.todoPhases) ? sessionState.todoPhases : [];
++  const todos = phases.flatMap((phase, p) => Array.isArray(phase?.tasks)
++    ? phase.tasks.map((task, i) => ({ title: String(task.content || task.title || ""), status: String(task.status || "pending"), key: p + "-" + i }))
++    : []);
++  const classifyTodo = (value) => {
++    const v=String(value || "pending").toLowerCase().trim().replace(/[\s-]+/g,"_");
++    if(["complete","completed","done","finished","success"].includes(v))return "done";
++    if(["in_progress","inprogress","working","active","running"].includes(v))return "working";
++    if(["pending","todo","not_started","planned","queued"].includes(v))return "pending";
++    return "other";
++  };
++  const items = todos.map(t => ({...t,group:classifyTodo(t.status)}));
++  const pendingTodo = items.filter(t => t.group === "pending");
++  const workingTodo = items.filter(t => t.group === "working");
++  const doneTodo = items.filter(t => t.group === "done");
++  const otherTodo = items.filter(t => t.group === "other");
++  const taskItem = t => /* @__PURE__ */ jsxRuntimeExports.jsxs("div",{className:"flex gap-2 py-0.5",children:[
++    /* @__PURE__ */ jsxRuntimeExports.jsx("span",{className:"shrink-0 text-muted",children:t.status}),
++    /* @__PURE__ */ jsxRuntimeExports.jsx("span",{className:"min-w-0 whitespace-pre-wrap break-words",children:t.title || "(Untitled task)"})
++  ]},t.key);
++  const taskGroup = (label,tasks) => tasks.length ? [
++    /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"font-semibold pt-1",children:label+" ("+tasks.length+")"},"group-"+label),
++    ...tasks.map(taskItem)
++  ] : [];
++  const copyResponse = (state, target) => {
++    if (state?.success !== true || !state.data || state.data.sessionId !== target.sessionId) throw new Error("Native session state unavailable or changed");
++    const current = useAppStore.getState();
++    const currentBound = selectedSessionTarget(current);
++    if (currentBound && currentBound.runtimeId === target.runtimeId &&
++        currentBound.workspaceId === target.workspaceId &&
++        currentBound.sessionId === target.sessionId &&
++        currentBound.sessionPath === target.sessionPath) {
++      useAppStore.setState({ sessionState: state.data });
++    }
++  };
++  const target = () => {
++    const state = useAppStore.getState();
++    const bound = selectedSessionTarget(state);
++    if (!bound || bound.runtimeId !== runtimeId || bound.sessionId !== runtime?.sessionId || !bound.sessionPath) throw new Error("Session changed; retry");
++    return bound;
++  };
++  const perform = async (name, fn) => {
++    if (inFlight.current) return;
++    inFlight.current = true;
++    const epoch = actionEpoch.current;
++    setBusy(name); setError("");
++    try {
++      const bound = target();
++      const answer = await fn(bound);
++      if (answer && answer.success === false) throw new Error(String(answer.error || "Engine rejected command"));
++      if (epoch !== actionEpoch.current) return;
++      const result = await window.piDesktop.session.getState(bound);
++      if (epoch !== actionEpoch.current) return;
++      copyResponse(result, bound);
++      if ((name === "enable-fast" || name === "disable-fast") &&
++          (typeof result?.data?.fastModeEnabled !== "boolean" || result.data.fastModeEnabled !== (name === "enable-fast")))
++        throw new Error("OMP did not confirm Fast Mode: provider/session may not support it");
++      if (name === "remove-queue" && answer?.data?.removed !== true)
++        throw new Error("Message was already delivered or is no longer pending");
++      setConfirmFast(false);
++    } catch (e) {
++      if (epoch === actionEpoch.current) setError(e instanceof Error ? e.message : "Operation unavailable");
++    } finally {
++      if (epoch === actionEpoch.current) {
++        inFlight.current = false;
++        setBusy("");
++      }
++    }
++  };
++async function prepareLeasePrompt(){
++ if(inFlight.current)return;
++ inFlight.current=true;setBusy("lease-prompt");setError("");
++ const epoch=actionEpoch.current;
++ try{
++  const bound=target(),ws=useAppStore.getState().activeWorkspace;
++  if(!ws||ws.id!==bound.workspaceId||ws.name!=="UACF")throw Error("CANONICAL_UACF_WORKSPACE_REQUIRED");
++  const snapshot=await window.piDesktop.session.getState(bound);
++  if(snapshot?.success!==true||snapshot.data?.sessionId!==bound.sessionId)throw Error("RECIPIENT_SESSION_READBACK_REQUIRED");
++  const prompt=[
++   "# UACF Controller Lease Request (not an authorization)",
++   "Project: UACF",
++   "Project root: "+String(ws.path||"UNVERIFIED"),
++   "Recipient harness: Pi Desktop / OMP",
++   "Recipient workspace ID: "+bound.workspaceId,
++   "Recipient native session ID: "+bound.sessionId,
++   "Recipient native journal: "+bound.sessionPath,
++   "",
++   "Verify the current signed GOAL, owner, generation, and Controller Lease through the canonical Gateway now; do not trust historical screenshots or this prompt as proof.",
++   "If this session is the verified holder, return the current Gateway receipt without creating a new lease.",
++   "Otherwise, request an operator-authorized signed transfer or release from the existing Controller via the canonical Gateway. No self-grant, forced takeover, or lease mutation without verified authority.",
++   "Do not transfer protected writer scope; task-scoped worker grants remain independently checked.",
++   "Keep the human-selected model, provider, and effort unchanged.",
++   "Pi-to-Pi one-click transfer is valid only for verified Pi source and recipient with explicit human confirmation. Otherwise use authorized cross-harness Gateway workflow.",
++   "Report exact owner/recipient, new generation, signed receipt, or a concrete blocker; never claim success from copied text alone."
++  ].join("\n");
++  const reply=await window.piDesktop.session.copyHistory(bound,prompt);
++  if(reply?.ok!==true||reply.characters!==prompt.length)throw Error("LEASE_REQUEST_CLIPBOARD_UNVERIFIED");
++  if(epoch===actionEpoch.current){setLeasePrompt(prompt);setError("Lease request prompt copied. No transfer performed.");}
++ }catch(e){if(epoch===actionEpoch.current)setError(e instanceof Error?e.message:String(e))}
++ finally{if(epoch===actionEpoch.current){inFlight.current=false;setBusy("")}}
++}
++  async function copyPreparedLeasePrompt(){
++ if(!leasePrompt||inFlight.current)return;
++ try{
++  const reply=await window.piDesktop.session.copyHistory(target(),leasePrompt);
++  if(reply?.ok!==true)throw Error("COPY_REQUEST_FAILED");
++  setError("Lease request copied. Controller Lease unchanged.");
++ }catch(e){setError(e instanceof Error?e.message:String(e))}
++}
++  const transferLease = async () => {
++    if(inFlight.current)return;
++    const bound=target(),ws=useAppStore.getState().activeWorkspace;
++    if(!ws||ws.id!==bound.workspaceId||ws.name!=="UACF"){setError("CANONICAL_UACF_WORKSPACE_REQUIRED");return;}
++    inFlight.current=true;setBusy("signed-transfer");setError("");
++    const epoch=actionEpoch.current;
++    try {
++      const x=await window.piDesktop.session.handoffTransfer({workspaceId:ws.id,recipientSessionId:bound.sessionId,userClicked:true});
++      if(!["TRANSFERRED","ALREADY_HELD"].includes(x?.status)||!x.receipt||!Number.isInteger(x.generation))throw Error("GATEWAY_RECEIPT_NOT_VERIFIED");
++      if(epoch===actionEpoch.current)setError("Gateway "+x.status+"; generation "+x.generation+"; receipt "+x.receipt+"; writer grant separate.");
++    } catch(e){if(epoch===actionEpoch.current)setError(e instanceof Error?e.message:String(e));}
++    finally{if(epoch===actionEpoch.current){inFlight.current=false;setBusy("");}}
++  };
++  const copyHandoff = async () => {
++    if(inFlight.current)return;
++    inFlight.current=true;setBusy("copy-handoff");setError("");
++    const epoch=actionEpoch.current;
++    try {
++      const bound=target();
++      const state=await window.piDesktop.session.getState(bound);
++      if(state?.success!==true||state.data?.sessionId!==bound.sessionId)throw Error("HANDOFF_NATIVE_READBACK_REQUIRED");
++      const all=await window.piDesktop.session.listAll();
++      if(!Array.isArray(all))throw Error("NATIVE_SESSION_LIST_UNAVAILABLE");
++      const recent=await window.piDesktop.session.readHistory(bound,{});
++      if(recent?.sessionId!==bound.sessionId||!Array.isArray(recent.rows))throw Error("HANDOFF_JOURNAL_READBACK_REQUIRED");
++      const projectRoot=useAppStore.getState().activeWorkspace?.path;
++      const sameProject=(p)=>typeof p==="string"&&typeof projectRoot==="string"&&p.replace(/\\/g,"/").toLowerCase()===projectRoot.replace(/\\/g,"/").toLowerCase();
++      const scoped=all.filter(s=>s.workspaceId===bound.workspaceId||sameProject(s.projectPath)).slice(0,40);
++      const lines=["# Pi native handoff capsule","Project workspace: "+bound.workspaceId,"Session ID: "+bound.sessionId,"Native journal: "+bound.sessionPath,"Model: "+String(state.data.model?.provider||"unknown")+"/"+String(state.data.model?.id||"unknown"),"Thinking: "+String(state.data.thinkingLevel||"unknown"),"Queued: "+((state.data.queuedMessages?.steering?.length||0)+(state.data.queuedMessages?.followUp?.length||0)),"","## Project sessions"];
++      for(const item of scoped)lines.push("- "+String(item.name||"Untitled")+" | "+String(item.piSessionId||item.sessionId||"unknown")+" | "+String(item.path||"unavailable"));
++      lines.push("","## Recent conversation (latest native journal page; compact excerpts)");
++      let budget=10500;
++      for(const item of recent.rows.filter(x=>(x.role==="user"||x.role==="assistant")&&typeof x.text==="string").slice(-10)){
++        if(budget<=0)break;
++        const snippet=item.text.slice(0,Math.min(1500,budget));
++        lines.push("["+String(item.at||"")+"] "+item.role.toUpperCase()+": "+snippet);budget-=snippet.length;
++      }
++      lines.push("","## Authority","This capsule is informational only. Controller Lease and task-scoped writer grant are NOT transferred.","Recipient must verify native session identity and obtain signed Gateway authorization separately.");
++      const handoffText=lines.join("\n");
++      const copied=await window.piDesktop.session.copyHistory(bound,handoffText);
++      if(copied?.ok!==true||copied.characters!==handoffText.length)throw Error("HANDOFF_NATIVE_COPY_UNVERIFIED");
++      if(epoch===actionEpoch.current)setError("Handoff copied (no lease transfer).");
++    }catch(e){if(epoch===actionEpoch.current)setError(e instanceof Error?e.message:String(e))}
++    finally{if(epoch===actionEpoch.current){inFlight.current=false;setBusy("")}}
++  };
++  if (!exactSession && !runtime) return null;
++  const fastKnown = exactSession && typeof sessionState?.fastModeEnabled === "boolean";
++  const queueCount = steering.length + followUp.length;
++  const todoSummary = "Pending "+pendingTodo.length+" · In Progress "+workingTodo.length+" · Completed "+doneTodo.length+(otherTodo.length?" · Other "+otherTodo.length:"");
++  const showFast = fastKnown ? (fastActive ? "Fast active" : fastEnabled ? "Fast requested" : "Standard") : "Fast unknown";
++  const speed = exactSession && typeof sessionState?.tokensPerSecond === "number"
++    ? sessionState.tokensPerSecond.toFixed(1) + " tok/s"
++    : "Speed unavailable";
++  const row = (message, kind, idx) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++    className: "flex min-w-0 items-center gap-2 border-b border-border/40 py-1",
++    children: [
++      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "shrink-0 text-muted", children: kind === "steering" ? "Steer" : "Next" }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "min-w-0 flex-1 whitespace-pre-wrap break-words", children: message }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++        type: "button", disabled: !!busy || !exactSession,
++        className: "shrink-0 rounded border border-border px-2 py-0.5 disabled:opacity-40",
++        onClick: () => void perform("remove-queue", (bound) => window.piDesktop.session.removeQueuedMessage(bound, kind, message)),
++        children: "Remove"
++      })
++    ]
++  }, kind + ":" + idx + ":" + message);
++  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++    className: "border-b border-border bg-card/30 px-3 py-1.5 text-xs text-secondary",
++    children: [
++      /* @__PURE__ */ jsxRuntimeExports.jsxs("button", {
++        type: "button", "aria-expanded": open,
++        className: "flex w-full items-center gap-3 text-left",
++        onClick: () => setOpen(!open),
++        children: [
++          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold", children: "OMP controls" }),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-muted", children: showFast + " · " + speed + " · Queued user messages " + queueCount + " · TODO: " + todoSummary }),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-auto text-muted", children: open ? "▾" : "▸" })
++        ]
++      }),
++      open && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++        className: "mt-2 flex flex-col gap-2 overflow-y-auto border-t border-border pt-2",style:{maxHeight:"27vh",overflowY:"auto",minHeight:0,overscrollBehavior:"contain"},
++        children: [
++          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
++            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Fast mode: " + showFast }),
++            !fastEnabled ? !confirmFast ? /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++              type: "button", className: "rounded border border-border px-2 py-1",
++              disabled: !!busy || loading || !exactSession,
++              onClick: () => setConfirmFast(true),
++              children: "Enable fast…"
++            }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
++              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Priority tier may cost more; no model or thinking change." }),
++              /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++                type: "button", disabled: !!busy || !exactSession || loading,
++                className: "rounded border border-border px-2 py-1 font-semibold",
++                onClick: () => void perform("enable-fast", bound => window.piDesktop.session.setFastMode(bound, true)),
++                children: "Confirm fast"
++              }),
++              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setConfirmFast(false), children: "Cancel" })
++            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++              type: "button", className: "rounded border border-border px-2 py-1",
++              disabled: !!busy || !exactSession || loading,
++              onClick: () => void perform("disable-fast", bound => window.piDesktop.session.setFastMode(bound, false)),
++              children: "Disable fast"
++            }),
++            /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++              type: "button", className: "rounded border border-border px-2 py-1", disabled: !!busy || !exactSession,
++              onClick: () => void perform("refresh", () => Promise.resolve(null)),
++              children: "Refresh state"
++            })
++          ] }),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted", children: "Fast is an OMP runtime request, not a model switch. During streaming it may apply only to the NEXT provider request. Active status requires provider support." }),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-semibold", children: "Queued user messages (" + queueCount + "): Steer "+steering.length+" · Next "+followUp.length }),
++          !queueCount && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted", children: "No queued user messages. This is separate from TODO Pending." }),
++          ...steering.map((m, i) => row(m, "steering", i)),
++          ...followUp.map((m, i) => row(m, "followUp", i)),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"font-semibold",children:"OMP TODO "+todos.length+" total — "+todoSummary}),
++          !todos.length && /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"text-muted",children:"No engine-reported TODO tasks"}),
++          ...taskGroup("In Progress",workingTodo),
++          ...taskGroup("Pending",pendingTodo),
++          ...taskGroup("Completed",doneTodo),
++          ...taskGroup("Other (native status)",otherTodo),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"text-muted",children:"TODO is native agent task state, not queued user messages."}),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("button",{type:"button",disabled:!!busy||!exactSession||useAppStore.getState().activeWorkspace?.name!=="UACF",className:"rounded border border-border px-2 py-1 text-left",onClick:()=>void prepareLeasePrompt(),children:"Prepare Controller Lease Prompt"}),
++          leasePrompt && /* @__PURE__ */ jsxRuntimeExports.jsxs("div",{className:"rounded border border-border p-2 text-xs",children:[
++            /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"mb-1 text-muted",children:"Prepared lease request (not a grant or receipt)"}),
++            /* @__PURE__ */ jsxRuntimeExports.jsx("pre",{className:"whitespace-pre-wrap break-words",style:{maxHeight:"22vh",overflowY:"auto",overflowWrap:"anywhere"},children:leasePrompt}),
++            /* @__PURE__ */ jsxRuntimeExports.jsxs("div",{className:"mt-2 flex flex-wrap gap-2",children:[
++              /* @__PURE__ */ jsxRuntimeExports.jsx("button",{type:"button",disabled:!!busy||!exactSession,className:"rounded border border-border px-2 py-1",onClick:()=>void copyPreparedLeasePrompt(),children:"Copy lease request"}),
++              /* @__PURE__ */ jsxRuntimeExports.jsx("button",{type:"button",disabled:!!busy||!exactSession,className:"rounded border border-border px-2 py-1",onClick:()=>void transferLease(),children:"Authorize signed Pi-to-Pi transfer (confirm)"})
++            ]})
++          ]}),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("button",{type:"button",disabled:!!busy||!exactSession,className:"rounded border border-border px-2 py-1 text-left",onClick:()=>void copyHandoff(),children:"Copy Handoff + Project Sessions (not lease)"}),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted", children: "Project Session List is saved conversations, NOT Controller Lease. Copy does not transfer authority." }),
++          error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { role: "alert", className: "text-warning", children: error })
++        ]
++      })
++    ]
++  });
++}
++
+ function ChatPanel() {
++  const [modHistoryOpen,setModHistoryOpen]=reactExports.useState(false);
++  const modCurrentRuntime=useAppStore(s=>s.activeSessionRuntimeId);
++  reactExports.useEffect(()=>setModHistoryOpen(false),[modCurrentRuntime]);
+   const { t: t2 } = useTranslation();
+   const messages = useAppStore((state) => state.messages);
+   const sessionLoading = useAppStore((state) => state.sessionLoading);
+@@ -94678,7 +95099,9 @@ function ChatPanel() {
+   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-1 flex-col overflow-hidden", children: [
+     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: panelRowRef, className: "grid min-h-0 flex-1 overflow-hidden", style: resolvePaneGrid(paneLayout), children: [
+       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chat-center flex flex-col overflow-hidden", style: { gridArea: PANE_GRID_AREA.chat }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: chatDropZoneRef, className: "relative flex min-h-0 flex-1 flex-col", children: [
+-        searchOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"shrink-0 border-b border-border px-3",style:{maxHeight:"60vh",minHeight:0,overflowY:"auto",overscrollBehavior:"contain"},children:/* @__PURE__ */ jsxRuntimeExports.jsx(NativeSessionControls,{})}),
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"shrink-0 border-b border-border px-3 py-1",children:/* @__PURE__ */ jsxRuntimeExports.jsx("button",{type:"button",onClick:()=>setModHistoryOpen(v=>!v),className:"rounded border border-border px-3 py-1 text-xs font-medium",children:modHistoryOpen?"Back to Chat":"History Chat"})}),
++        !modHistoryOpen && searchOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
+           ChatSearch,
+           {
+             containerRef: scrollRef,
+@@ -94686,7 +95109,7 @@ function ChatPanel() {
+             onClose: () => setSearchOpen(false)
+           }
+         ),
+-        (() => {
++        modHistoryOpen ? /* @__PURE__ */ jsxRuntimeExports.jsx(NativeReadableHistory,{}) : (() => {
+           const isEmptyChat = !sessionLoading && messages.length === 0 && !isStreaming;
+           if (isEmptyChat) {
+             return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-10", children: [
+@@ -95181,6 +95604,7 @@ async function probeGpu() {
+   }
+   return { available: false, name: null };
+ }
++const NATIVE_VOICE_LABELS = Object.freeze({ "typhoon-whisper-turbo-q5": { name: "Typhoon Whisper Turbo (Q5_0)", backend: "Vulkan GPU - Q5_0" }, "typhoon-whisper-large-v3": { name: "Typhoon Whisper Large v3 (Q5_0)", backend: "Vulkan GPU - Q5_0" }, "typhoon-asr-qwen-0.6b-ctx": { name: "Typhoon ASR Qwen 0.6B CTX (Q8_0)", backend: "Vulkan GPU - Q8_0" } });
+ function VoiceSettings() {
+   const { t: t2 } = useTranslation();
+   const [status2, setStatus] = reactExports.useState(null);
+@@ -95292,7 +95716,7 @@ function VoiceSettings() {
+             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3", children: [
+               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
+                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-primary", children: t2(`voice.models.${model.id}.name`) }),
++                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-medium text-primary", children: NATIVE_VOICE_LABELS[model.id]?.name ?? t2(`voice.models.${model.id}.name`) }),
+                   isSelected && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1 text-[10px] text-accent", children: [
+                     /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size: 11 }),
+                     " ",
+@@ -95304,11 +95728,11 @@ function VoiceSettings() {
+                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: model.languages === "multi" ? t2("settings.voice.multilingual") : t2("settings.voice.englishOnly") }),
+                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: t2("settings.voice.sizeMb", { mb: sizeMb }) }),
+                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: model.license }),
+-                  installedEntry && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: t2(`settings.voice.precision.${installedEntry.precision}`) })
++                  installedEntry && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: NATIVE_VOICE_LABELS[model.id]?.backend ?? t2(`settings.voice.precision.${installedEntry.precision}`) })
+                 ] })
+               ] }),
+               /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex shrink-0 items-center gap-1.5", children: installedEntry ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+-                installedEntry.precision !== precision && /* @__PURE__ */ jsxRuntimeExports.jsxs(
++                installedEntry.precision !== precision && !NATIVE_VOICE_LABELS[model.id] && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                   "button",
+                   {
+                     type: "button",
+@@ -99603,8 +100027,20 @@ function StatsPanel() {
+   }, [data2, range]);
+   if (!data2 || data2.ranges["365"].messages === 0) return null;
+   const stats2 = data2.ranges[range];
++  const observedRows = stats2.usageTelemetryHistory?.rows ?? [];
++  const observedSummary = modUsageAccumulate(observedRows);
++  const observedTokenMetric = observedSummary.metrics?.totalTokens;
++  const observedTokenDisplay = observedTokenMetric?.reported ? formatCompact(observedTokenMetric.value) : "-";
++  const observedModelsMap = new Map();
++  for (const row of observedRows) {
++    const existing = observedModelsMap.get(row.model) ?? { model: row.model, input: 0, output: 0 };
++    if (row.metrics?.promptWork?.reported) existing.input += row.metrics.promptWork.value || 0;
++    if (row.metrics?.output?.reported) existing.output += row.metrics.output.value || 0;
++    observedModelsMap.set(row.model, existing);
++  }
++  const currentModels = [...observedModelsMap.values()].sort((a, b) => b.input + b.output - (a.input + a.output));
+   const favoriteModel = stats2.models[0] ? modelLabel(stats2.models[0]) : "—";
+-  const orderedModels = stats2.models.map((m) => m.model);
++  const orderedModels = currentModels.map((m) => m.model);
+   const modelColor = new Map(
+     orderedModels.map((model, i) => [model, MODEL_DOT_COLORS[i % MODEL_DOT_COLORS.length]])
+   );
+@@ -99639,7 +100075,7 @@ function StatsPanel() {
+       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4", children: [
+         /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.sessionsLabel"), value: stats2.sessions.toLocaleString(i18n2.language) }),
+         /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.messagesLabel"), value: stats2.messages.toLocaleString(i18n2.language) }),
+-        /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.totalTokensLabel"), value: formatCompact(stats2.totalTokens) }),
++        /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: "OMP processed tokens", value: observedTokenDisplay }),
+         /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.activeDaysLabel"), value: stats2.activeDays.toLocaleString(i18n2.language) }),
+         /* @__PURE__ */ jsxRuntimeExports.jsx(
+           StatCard,
+@@ -99660,11 +100096,422 @@ function StatsPanel() {
+       ] }),
+       /* @__PURE__ */ jsxRuntimeExports.jsx(Heatmap, { days: rangedDays })
+     ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+-      /* @__PURE__ */ jsxRuntimeExports.jsx(TokenChart, { days: rangedDays, orderedModels, modelColor }),
+-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 border-t border-border pt-3", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ModelLegend, { models: stats2.models, modelColor }) })
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-3 text-xs leading-relaxed text-faint", children: "Selected-period OMP processed tokens. This is request workload, not provider account/billing usage." }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-border pt-3", children: /* @__PURE__ */ jsxRuntimeExports.jsx(ModelLegend, { models: currentModels, modelColor }) })
+     ] })
+   ] });
+ }
++// Mod Usage UI v4: provider account ledger first, OMP journal diagnostics second.
++function modUsageFormatMetric(metric) {
++  if (!metric || !metric.reported) return "-";
++  return new Intl.NumberFormat().format(metric.value) + (metric.missing ? " *" : "");
++}
++function modUsageFormatNumber(value) {
++  return typeof value === "number" && Number.isFinite(value) ? new Intl.NumberFormat().format(value) : "-";
++}
++function modUsageAccumulate(rows) {
++  const keys = ["promptWork", "uncachedInput", "output", "cacheRead", "cacheWrite", "reasoningTokens", "totalTokens"];
++  const out = Object.fromEntries(keys.map((key) => [key, { value: 0, reported: 0, missing: 0 }]));
++  let responses = 0;
++  let integrityMismatches = 0;
++  for (const row of rows) {
++    responses += row.responses || 0;
++    integrityMismatches += row.integrityMismatches || 0;
++    for (const key of keys) {
++      const metric = row.metrics?.[key];
++      if (!metric) {
++        out[key].missing += row.responses ?? 1;
++        continue;
++      }
++      out[key].value += metric.value || 0;
++      out[key].reported += metric.reported || 0;
++      out[key].missing += metric.missing || 0;
++    }
++  }
++  return { metrics: out, responses, integrityMismatches };
++}
++function modUsageObservedCacheShare(metrics) {
++  const prompt = metrics?.promptWork;
++  const cache = metrics?.cacheRead;
++  if (!prompt?.reported || !cache?.reported || prompt.value <= 0) return "-";
++  return (cache.value / prompt.value * 100).toFixed(cache.value / prompt.value >= 0.1 ? 1 : 2) + "%";
++}
++function modUsageMetricSource(key, metric, responses) {
++  if (!metric?.reported) return "No OMP response usage in period";
++  const coverage = responses > 0 ? " | " + metric.reported + "/" + responses + " responses" : "";
++  if (metric.missing) return "Partial OMP response telemetry" + coverage;
++  return (key === "reasoningTokens" ? "Provider optional field" : "OMP normalized response usage") + coverage;
++}
++function modUsageQuotaValue(limit) {
++  const amount = limit?.amount || {};
++  if (amount.unit === "percent" && typeof amount.used === "number") return amount.used.toFixed(1) + "% used";
++  if (amount.unit === "usd" && typeof amount.used === "number") return "$" + amount.used.toFixed(2) + " used";
++  if (typeof amount.used === "number" && typeof amount.limit === "number") return new Intl.NumberFormat().format(amount.used) + " / " + new Intl.NumberFormat().format(amount.limit);
++  if (typeof amount.remaining === "number") return new Intl.NumberFormat().format(amount.remaining) + " remaining";
++  return "Reported";
++}
++function modUsageQuotaDetail(limit) {
++  const parts = [];
++  if (limit?.window?.label) parts.push(limit.window.label);
++  if (typeof limit?.amount?.remainingFraction === "number") parts.push((limit.amount.remainingFraction * 100).toFixed(1) + "% remaining");
++  if (typeof limit?.window?.resetsAt === "number") parts.push("resets " + new Date(limit.window.resetsAt).toLocaleString());
++  return parts.join(" · ") || "Provider-native quota";
++}
++function UsageTelemetryPanel() {
++  const [data, setData] = reactExports.useState(null);
++  const [loading, setLoading] = reactExports.useState(true);
++  const [error, setError] = reactExports.useState(false);
++  const [range, setRange] = reactExports.useState("7");
++  const [provider, setProvider] = reactExports.useState("");
++  const [model, setModel] = reactExports.useState("");
++  const [sessionId, setSessionId] = reactExports.useState("");
++  const [revision, setRevision] = reactExports.useState(0);
++  const [accountAnalytics, setAccountAnalytics] = reactExports.useState(null);
++  const [accountLoading, setAccountLoading] = reactExports.useState(false);
++  const [accountBusy, setAccountBusy] = reactExports.useState(false);
++  const [providerCatalog, setProviderCatalog] = reactExports.useState([]);
++  reactExports.useEffect(() => {
++    let cancelled = false;
++    setLoading(true);
++    window.piDesktop.activity.getStats().then((value) => {
++      if (!cancelled) {
++        setData(value);
++        setLoading(false);
++        setError(false);
++      }
++    }).catch(() => {
++      if (!cancelled) {
++        setData(null);
++        setLoading(false);
++        setError(true);
++      }
++    });
++    return () => { cancelled = true; };
++  }, [revision]);
++  reactExports.useEffect(() => {
++    let cancelled = false;
++    if (!window.piDesktop.providerAnalytics?.get) return () => { cancelled = true; };
++    window.piDesktop.providerAnalytics.get("__list__", range).then((value) => {
++      if (!cancelled) setProviderCatalog(Array.isArray(value?.providers) ? value.providers : []);
++    }).catch(() => { if (!cancelled) setProviderCatalog([]); });
++    return () => { cancelled = true; };
++  }, [range, revision]);
++  reactExports.useEffect(() => {
++    let cancelled = false;
++    if (!provider || !window.piDesktop.providerAnalytics?.get) {
++      setAccountAnalytics(null);
++      setAccountLoading(false);
++      return () => { cancelled = true; };
++    }
++    setAccountLoading(true);
++    window.piDesktop.providerAnalytics.get(provider, range).then((value) => {
++      if (!cancelled) {
++        setAccountAnalytics(value);
++        setAccountLoading(false);
++      }
++    }).catch((err) => {
++      if (!cancelled) {
++        setAccountAnalytics({ supported: true, provider, connected: false, reason: err instanceof Error ? err.message : String(err) });
++        setAccountLoading(false);
++      }
++    });
++    return () => { cancelled = true; };
++  }, [provider, range, revision]);
++  const rangeData = data?.ranges?.[range];
++  const currentTelemetry = rangeData?.usageTelemetry;
++  const telemetry = rangeData?.usageTelemetryHistory;
++  const baseRows = telemetry?.rows ?? [];
++  const historicalRows = baseRows;
++  const snapshotProviders = Object.keys(data?.providerSnapshots ?? {});
++  const providers = [...new Set([...baseRows, ...historicalRows].map((row) => row.provider).concat(snapshotProviders, providerCatalog))].sort();
++  const models = [...new Set(baseRows.filter((row) => !provider || row.provider === provider).map((row) => row.model))].sort();
++  const sessions = [...new Set(baseRows.filter((row) => (!provider || row.provider === provider) && (!model || row.model === model)).map((row) => row.sessionId))].sort();
++  const filtered = baseRows.filter((row) => (!provider || row.provider === provider) && (!model || row.model === model) && (!sessionId || row.sessionId === sessionId));
++  const summary = modUsageAccumulate(filtered);
++  const metric = summary.metrics;
++  const gatewaySelected = provider === "Gateway Portal";
++  const accountConnected = gatewaySelected && accountAnalytics?.connected === true;
++  const nativeUsageConnected = !!provider && !gatewaySelected && accountAnalytics?.connected === true && accountAnalytics?.source === "OMP_PROVIDER_USAGE";
++  const providerSnapshot = gatewaySelected ? data?.providerSnapshots?.["Gateway Portal"] ?? null : null;
++  const refresh = () => setRevision((n) => n + 1);
++  const connectAccount = async () => {
++    if (!window.piDesktop.providerAnalytics?.connect || accountBusy) return;
++    setAccountBusy(true);
++    try {
++      const value = await window.piDesktop.providerAnalytics.connect("Gateway Portal", range);
++      setAccountAnalytics(value);
++    } catch (err) {
++      setAccountAnalytics({ supported: true, provider: "Gateway Portal", connected: false, reason: err instanceof Error ? err.message : String(err) });
++    } finally {
++      setAccountBusy(false);
++    }
++  };
++  const disconnectAccount = async () => {
++    if (!window.piDesktop.providerAnalytics?.disconnect || accountBusy) return;
++    setAccountBusy(true);
++    try {
++      const value = await window.piDesktop.providerAnalytics.disconnect("Gateway Portal");
++      setAccountAnalytics(value);
++    } finally {
++      setAccountBusy(false);
++    }
++  };
++  const card = (key, title, customValue, customSource) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++    className: "rounded-lg border border-border bg-card/50 px-3 py-2.5",
++    children: [
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: title }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xl font-semibold tabular-nums text-primary", children: customValue ?? modUsageFormatMetric(metric[key]) }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-xs text-faint", children: customSource ?? (customValue !== undefined ? "Observed from OMP journal" : modUsageMetricSource(key, metric[key], summary.responses)) })
++    ]
++  });
++  const accountCard = (title, value, source) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++    className: "rounded-lg border border-border bg-card/50 px-3 py-2.5",
++    children: [
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: title }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xl font-semibold tabular-nums text-primary", children: modUsageFormatNumber(value) }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-xs text-faint", children: source })
++    ]
++  });
++  const dropdown = (label, selected, callback, values, title) => /* @__PURE__ */ jsxRuntimeExports.jsxs("label", {
++    className: "flex min-w-0 flex-1 flex-col gap-1.5 text-sm text-muted",
++    children: [
++      label,
++      /* @__PURE__ */ jsxRuntimeExports.jsxs("select", {
++        value: selected,
++        "aria-label": label,
++        onChange: (event) => callback(event.target.value),
++        className: "w-full min-w-0 rounded-md border border-border bg-card px-2.5 py-2 text-sm text-primary focus:border-focus focus:outline-none",
++        children: [
++          /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "", children: title }),
++          ...values.map((value) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value, children: value }, value))
++        ]
++      })
++    ]
++  });
++  const grouped = new Map();
++  for (const row of filtered) {
++    const list = grouped.get(row.provider) || [];
++    list.push(row);
++    grouped.set(row.provider, list);
++  }
++  const metricKeys = ["promptWork", "uncachedInput", "output", "cacheRead", "cacheWrite", "totalTokens"];
++  const metricLabels = { promptWork: "Prompt processed", uncachedInput: "Input*", output: "Output", cacheRead: "Cache read", cacheWrite: "Cache write", totalTokens: "Total processed" };
++  const localCards = /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++    className: "grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6",
++    children: [
++      card("promptWork", "Prompt Processed"),
++      card("uncachedInput", "Input (non-cache*)"),
++      card("output", "Output"),
++      card("cacheRead", "Cache Read (reported)"),
++      card("cacheWrite", "Cache Write (reported)"),
++      card("totalTokens", "Total Processed")
++    ]
++  });
++  const localExplanation = /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++    className: "mt-3 rounded-md border border-border bg-card/20 px-3 py-2.5 text-sm leading-relaxed text-faint",
++    children: [
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-secondary", children: "Selected-period OMP request telemetry. These counters come from model response usage and are not provider account/billing totals." }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1", children: "Prompt Processed = Input + Cache Read + Cache Write; Total Processed = Prompt Processed + Output. Observed cache share: " + modUsageObservedCacheShare(metric) + "." }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1", children: "* Input is what remains after cache fields reported to OMP. If an OpenAI-compatible provider omits cache details, cached work can remain inside Input and Cache Read may show 0." }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 tabular-nums", children: "Responses " + summary.responses + " | unique " + (telemetry?.uniqueResponses ?? 0) + " | duplicates removed " + (telemetry?.postCanonicalDuplicates ?? 0) + (summary.integrityMismatches ? " | integrity mismatches " + summary.integrityMismatches : " | token integrity OK") }),
++      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1", children: "Provider-native/account panel above is authoritative for quota or provider-account usage when exposed. Current-runtime boundary is preserved separately: " + (currentTelemetry?.uniqueResponses ?? 0) + " responses since " + (data?.usageScope?.startedAtMs ? new Date(data.usageScope.startedAtMs).toLocaleString() : "unknown") + "." })
++    ]
++  });
++  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", {
++    role: "region",
++    "aria-label": "Usage telemetry",
++    className: "m-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border-strong bg-surface text-primary",
++    children: [
++      /* @__PURE__ */ jsxRuntimeExports.jsxs("header", {
++        className: "flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3",
++        children: [
++          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++            children: [
++              /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold text-primary", children: "Usage" }),
++              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-sm text-faint", children: gatewaySelected ? "Provider account ledger + selected-period OMP workload" : "Selected-period OMP telemetry - Provider > Model > Session" })
++            ]
++          }),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++            type: "button",
++            onClick: refresh,
++            title: "Refresh usage",
++            className: "rounded-md px-2.5 py-1.5 text-sm text-muted hover:bg-highlight hover:text-primary",
++            children: loading || accountLoading ? "Loading" : "Refresh"
++          })
++        ]
++      }),
++      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++        className: "overflow-y-auto p-4",
++        children: [
++          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++            className: "mb-3 flex flex-wrap items-end gap-2.5",
++            children: [
++              /* @__PURE__ */ jsxRuntimeExports.jsxs("label", {
++                className: "flex flex-col gap-1.5 text-sm text-muted",
++                children: [
++                  "Period",
++                  /* @__PURE__ */ jsxRuntimeExports.jsx("select", {
++                    value: range,
++                    "aria-label": "Period",
++                    onChange: (event) => setRange(event.target.value),
++                    className: "rounded-md border border-border bg-card px-2.5 py-2 text-sm text-primary",
++                    children: ["7", "30", "90", "180", "365"].map((n) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: n, children: n + " days" }, n))
++                  })
++                ]
++              }),
++              dropdown("Provider", provider, (value) => { setProvider(value); setModel(""); setSessionId(""); }, providers, "All providers"),
++              dropdown("Model", model, (value) => { setModel(value); setSessionId(""); }, models, "All models"),
++              dropdown("Session", sessionId, setSessionId, sessions, "All sessions")
++            ]
++          }),
++          gatewaySelected ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++            className: "mb-3 rounded-lg border border-border-strong bg-card/20 p-3",
++            children: [
++              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                className: "mb-3 flex flex-wrap items-center justify-between gap-2",
++                children: [
++                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                    children: [
++                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-base font-semibold text-primary", children: "Gateway Portal - Provider Account" }),
++                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-sm text-faint", children: "Authoritative portal analytics. This is the number to compare with ai.thirx.com." })
++                    ]
++                  }),
++                  accountConnected ? /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++                    type: "button",
++                    onClick: disconnectAccount,
++                    disabled: accountBusy,
++                    className: "rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:bg-highlight hover:text-primary disabled:opacity-50",
++                    children: accountBusy ? "Working..." : "Disconnect"
++                  }) : /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
++                    type: "button",
++                    onClick: connectAccount,
++                    disabled: accountBusy || accountLoading,
++                    className: "rounded-md border border-border bg-highlight px-3 py-1.5 text-sm text-primary hover:bg-card disabled:opacity-50",
++                    children: accountBusy ? "Connecting..." : "Connect Gateway Portal"
++                  })
++                ]
++              }),
++              accountLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-4 text-sm text-muted", children: "Reading provider account analytics..." })
++              : accountConnected ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, {
++                children: [
++                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                    className: "grid grid-cols-1 gap-2.5 sm:grid-cols-3",
++                    children: [
++                      accountCard("All-Time Tokens", accountAnalytics.allTimeTokens, "Provider account"),
++                      accountCard(accountAnalytics.periodExact ? range + "-Day Tokens" : "Selected Period Tokens", accountAnalytics.periodTokens, accountAnalytics.periodExact ? "Provider account" : "Provider only exposes exact 7d / 30d periods"),
++                      accountCard(accountAnalytics.periodExact ? range + "-Day Requests" : "Selected Period Requests", accountAnalytics.periodRequests, accountAnalytics.periodExact ? "Provider account" : "Unavailable for this range")
++                    ]
++                  }),
++                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-xs text-faint", children: "Synced " + new Date(accountAnalytics.fetchedAt).toLocaleString() + " via " + accountAnalytics.adapterId })
++                ]
++              }) : providerSnapshot ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                children: [
++                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 gap-2.5 sm:grid-cols-3", children: [
++                    accountCard("All-Time Tokens", providerSnapshot.allTimeTokens, "Provider snapshot"),
++                    accountCard("Last 24h Tokens", providerSnapshot.last24hTokens, "Provider snapshot"),
++                    accountCard("Provider Requests", providerSnapshot.requests, "Provider snapshot")
++                  ] }),
++                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-xs text-faint", children: "Snapshot observed " + (providerSnapshot.observedAt || "unknown") + ". Connect Gateway Portal for live account analytics." })
++                ]
++              }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
++                className: "rounded-md border border-border bg-card/30 px-3 py-3 text-sm text-muted",
++                children: "Provider analytics is not connected in Pi Desktop. Connect once with the Gateway Portal login; API keys are intentionally not accepted as dashboard authentication."
++              })
++            ]
++          }) : null,
++          provider && !gatewaySelected ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++            className: "mb-3 rounded-lg border border-border-strong bg-card/20 p-3",
++            children: [
++              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-2", children: [
++                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-base font-semibold text-primary", children: provider + " - Provider Native Usage" }),
++                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-sm text-faint", children: "Quota/account data reported by the provider through OMP. Token input/output/cache remain separate request telemetry below." })
++              ] }),
++              accountLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-3 text-sm text-muted", children: "Reading native provider usage..." })
++              : nativeUsageConnected ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
++                Array.isArray(accountAnalytics.limits) && accountAnalytics.limits.length ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
++                  className: "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3",
++                  children: accountAnalytics.limits.map((limit, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                    className: "rounded-lg border border-border bg-card/50 px-3 py-2.5",
++                    children: [
++                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: limit.label || "Usage" }),
++                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xl font-semibold tabular-nums text-primary", children: modUsageQuotaValue(limit) }),
++                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-xs text-faint", children: modUsageQuotaDetail(limit) })
++                    ]
++                  }, limit.id || String(index)))
++                }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: "Provider returned a native usage report without numeric limits." }),
++                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-xs text-faint", children: "Synced " + new Date(accountAnalytics.fetchedAt).toLocaleString() + (accountAnalytics.metadata?.planType ? " · plan " + accountAnalytics.metadata.planType : "") })
++              ] })
++              : /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
++                className: "rounded-md border border-border bg-card/30 px-3 py-3 text-sm text-muted",
++                children: accountAnalytics?.reason === "ACCOUNT_WITHOUT_NATIVE_USAGE" ? "This authenticated provider account does not expose a native usage report. Request-token telemetry below is still available."
++                  : accountAnalytics?.reason === "NO_NATIVE_USAGE_REPORT" ? "OMP has no native account/quota report for this provider. Request-token telemetry below is still available."
++                  : "Native provider usage is unavailable right now. Request-token telemetry below remains independent."
++              })
++            ]
++          }) : null,
++          gatewaySelected ? /* @__PURE__ */ jsxRuntimeExports.jsxs("details", {
++            open: true,
++            className: "mb-3 rounded-lg border border-border bg-card/10",
++            children: [
++              /* @__PURE__ */ jsxRuntimeExports.jsx("summary", { className: "cursor-pointer select-none px-3 py-2.5 text-sm font-semibold text-secondary", children: "Local OMP journal diagnostics (not provider usage)" }),
++              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-3 pb-3", children: [localCards, localExplanation] })
++            ]
++          }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-3", children: [localCards, localExplanation] }),
++          error ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-md border border-border p-3 text-sm text-error", children: "Could not read native usage data." })
++          : loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "py-6 text-center text-sm text-muted", children: "Loading usage..." })
++          : !filtered.length ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "rounded-md border border-border px-3 py-6 text-center text-sm text-muted", children: "No OMP request telemetry in this period for these filters." })
++          : /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
++            className: "space-y-3",
++            children: [...grouped.entries()].map(([name, rows]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++              className: "rounded-lg border border-border bg-card/20",
++              children: [
++                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                  className: "flex justify-between border-b border-border px-3 py-2.5",
++                  children: [
++                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate text-base font-semibold text-primary", children: name }),
++                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-faint", children: rows.reduce((a, row) => a + row.responses, 0) + " journal responses" })
++                  ]
++                }),
++                /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
++                  className: "divide-y divide-border/50",
++                  children: rows.map((row) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                    className: "grid grid-cols-1 gap-2 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_repeat(6,100px)] sm:gap-2.5",
++                    children: [
++                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                        className: "min-w-0",
++                        children: [
++                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "truncate text-sm text-secondary", title: row.model, children: row.model }),
++                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "truncate text-sm text-faint", title: row.sessionId, children: "Session " + (row.sessionId?.slice(0, 14) || "-") }),
++                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-xs text-faint", children: row.cacheObservation === "observed" ? "cache telemetry reported" : "cache 0 / provider may have omitted cache detail" })
++                        ]
++                      }),
++                      ...metricKeys.map((key) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                        className: "flex justify-between gap-2 tabular-nums sm:block sm:text-right",
++                        children: [
++                          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-faint sm:block", children: metricLabels[key] }),
++                          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-primary", children: modUsageFormatMetric(row.metrics?.[key]) })
++                        ]
++                      }, key)),
++                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++                        className: "flex justify-between gap-2 tabular-nums sm:block sm:text-right",
++                        children: [
++                          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-faint sm:block", children: "Cache share" }),
++                          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-primary", children: modUsageObservedCacheShare(row.metrics) })
++                        ]
++                      })
++                    ]
++                  }, JSON.stringify([row.provider, row.model, row.sessionId])))
++                })
++              ]
++            }, name))
++          })
++        ]
++      })
++    ]
++  });
++}
++
++
+ const MAX_RECENT_WORKSPACES = 6;
+ const MAX_RECENT_SESSIONS = 5;
+ const MAX_CHANGED_FILES = 8;
+@@ -103932,7 +104779,8 @@ function App() {
+               currentView === "diff" && /* @__PURE__ */ jsxRuntimeExports.jsx(DiffViewer, {}),
+               currentView === "notes" && /* @__PURE__ */ jsxRuntimeExports.jsx(NotesPanel, {}),
+               currentView === "skills" && /* @__PURE__ */ jsxRuntimeExports.jsx(SkillsPanel, {}),
+-              currentView === "diagnostics" && /* @__PURE__ */ jsxRuntimeExports.jsx(DiagnosticsPanel, {})
++              currentView === "diagnostics" && /* @__PURE__ */ jsxRuntimeExports.jsx(DiagnosticsPanel, {}),
++              currentView === "usage" && /* @__PURE__ */ jsxRuntimeExports.jsx(UsageTelemetryPanel, {})
+             ] }),
+             globalWorkflowOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(WorkflowNavigator, { embedded: true })
+           ] }),

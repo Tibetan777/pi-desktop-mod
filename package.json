@@ -28,7 +28,7 @@
   "scripts": {
     "dev": "electron-vite build && electron-vite preview -- --no-sandbox",
     "dev:hot": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "npm run build:base && node scripts/apply-v15-overlay.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint src bin scripts resources && node scripts/check-semantic-colors.mjs && i18next-cli lint && i18next-cli extract --ci --dry-run",
@@ -43,7 +43,8 @@
     "package:win:nsis": "electron-vite build && electron-builder --win nsis",
     "package:win:portable": "electron-vite build && electron-builder --win portable",
     "package:all": "electron-vite build && electron-builder --linux --mac --win",
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js",
+    "build:base": "electron-vite build"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
