@@ -1,8 +1,6 @@
-diff --git a/out/preload/index.js b/out/preload/index.js
-index 901a388..1b67c77 100644
 --- a/out/preload/index.js
 +++ b/out/preload/index.js
-@@ -24,6 +24,11 @@ const IPC_CHANNELS = {
+@@ -24,6 +24,11 @@
    SESSION_CLONE: "session:clone",
    SESSION_LIST: "session:list",
    SESSION_LIST_ALL: "session:list-all",
@@ -14,7 +12,7 @@ index 901a388..1b67c77 100644
    SESSION_RESUME_TARGET: "session:resume-target",
    SESSION_GET_STATE: "session:get-state",
    SESSION_GET_MESSAGES: "session:get-messages",
-@@ -74,6 +79,9 @@ const IPC_CHANNELS = {
+@@ -74,6 +79,9 @@
    UPDATE_CHECK: "update:check",
    // Activity
    ACTIVITY_GET_STATS: "activity:get-stats",
@@ -24,7 +22,7 @@ index 901a388..1b67c77 100644
    // Workflow run monitoring
    WORKFLOW_LIST: "workflow:list",
    WORKFLOW_GET_RUN: "workflow:get-run",
-@@ -197,6 +205,9 @@ const IPC_CHANNELS = {
+@@ -197,6 +205,9 @@
    VOICE_CANCEL: "voice:cancel",
    VOICE_REMOVE: "voice:remove",
    VOICE_SELECT: "voice:select",
@@ -34,7 +32,7 @@ index 901a388..1b67c77 100644
    // TypeSafe (Jev): API key storage and agent skill install
    TYPESAFE_STATUS: "typesafe:status",
    TYPESAFE_SAVE_KEY: "typesafe:save-key",
-@@ -230,8 +241,13 @@ const api = {
+@@ -230,8 +241,13 @@
      clone: () => electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_CLONE),
      list: (cwd) => electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_LIST, cwd),
      listAll: (cwd) => electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_LIST_ALL, cwd),
@@ -49,7 +47,7 @@ index 901a388..1b67c77 100644
      getMessages: () => electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET_MESSAGES),
      getStats: () => electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_GET_STATS),
      setName: (name) => electron.ipcRenderer.invoke(IPC_CHANNELS.SESSION_SET_NAME, name),
-@@ -334,6 +350,9 @@ const api = {
+@@ -334,6 +350,9 @@
    },
    voice: {
      status: () => electron.ipcRenderer.invoke(IPC_CHANNELS.VOICE_STATUS),
@@ -59,15 +57,15 @@ index 901a388..1b67c77 100644
      install: (request) => electron.ipcRenderer.invoke(IPC_CHANNELS.VOICE_INSTALL, request),
      cancel: () => electron.ipcRenderer.invoke(IPC_CHANNELS.VOICE_CANCEL),
      remove: (modelId) => electron.ipcRenderer.invoke(IPC_CHANNELS.VOICE_REMOVE, modelId),
-@@ -421,6 +440,11 @@ const api = {
+@@ -420,6 +439,11 @@
+   },
    activity: {
      getStats: () => electron.ipcRenderer.invoke(IPC_CHANNELS.ACTIVITY_GET_STATS)
-   },
++  },
 +  providerAnalytics: {
 +    get: (provider, range) => electron.ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNT_ANALYTICS_GET, provider, range),
 +    connect: (provider, range) => electron.ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNT_ANALYTICS_CONNECT, provider, range),
 +    disconnect: (provider) => electron.ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNT_ANALYTICS_DISCONNECT, provider)
-+  },
+   },
    workflows: {
      list: () => electron.ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_LIST),
-     getRun: (workspaceId, runId) => electron.ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_GET_RUN, workspaceId, runId),

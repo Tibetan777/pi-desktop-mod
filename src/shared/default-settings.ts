@@ -25,15 +25,15 @@ export const GIT_CONVEYOR_NOTICE_TIMEOUT_MS = {
  * and it applies everywhere.
  */
 export const DEFAULT_SETTINGS: AppSettings = {
-  piExecutablePath: 'pi',
-  piEngine: 'auto',
+  piExecutablePath: 'omp',
+  piEngine: 'omp',
   defaultArgs: [],
   theme: 'system',
   systemLightTheme: 'light',
   systemDarkTheme: 'dark',
   defaultModel: null,
   defaultProvider: null,
-  defaultThinkingLevel: null,
+  defaultThinkingLevel: 'low',
   defaultCwd: null,
   fontSize: 16,
   uiFontFamily: '',

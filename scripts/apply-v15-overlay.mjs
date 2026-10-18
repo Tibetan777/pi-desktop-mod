@@ -7,9 +7,9 @@ import { fileURLToPath, URL } from 'node:url'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const specs = [
-  { name: 'main', file: 'out/main/index.js', patch: 'patches/v15/main.patch', base: 'c86f5e1a4fc92e496e9f058f4fc97710ffb0ad14d9bb847fdbe06c71dab03e5e', target: 'facf0e4b2ca73b5d8f1157e78020339d1f023dc28a9acb78fd9c8f7f759abc89' },
+  { name: 'main', file: 'out/main/index.js', patch: 'patches/v15/main.patch', base: '0818b22d4d42de553e049b3c5b579802f8611e4f50b47d784550c638fee4e98a', target: '1e178a5ce60f69fdaf69d119406ba978983baf6b17f2afbc15601ae01ba80c81' },
   { name: 'preload', file: 'out/preload/index.js', patch: 'patches/v15/preload.patch', base: '16515278a7893b469644a5be6ef539a2e62abfcb14a77d3ac5eda0b9a4267c85', target: 'ad37854826ab174582b060f010664305f06968958c022c4c97f5a1e614cb4140' },
-  { name: 'renderer', file: 'out/renderer/assets/index-Ze1u3kee.js', patch: 'patches/v15/renderer.patch', base: '4887fa305242713076784014fb7579933d071bd9bb56c22f0e265fed203744d1', target: '0819ed3a167c686c5de4604ea9c6b2d2b344d9a8f8cb11ce928d110da6c992f8' }
+  { name: 'renderer', file: 'out/renderer/assets/index-BvwTAwqv.js', patch: 'patches/v15/renderer.patch', base: '90b5aa1d1054cb62c6aa77ce15ac876cffbcc2b73ecd630ed29e745fa8edad99', target: 'f2c269cc7632823d435f3319a56bfa1b42361b3c726669a4a50d8357dfb6e721' }
 ]
 
 const digest = (data) => createHash('sha256').update(data).digest('hex')

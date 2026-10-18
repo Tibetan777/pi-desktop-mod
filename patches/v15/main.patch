@@ -1,8 +1,6 @@
-diff --git a/out/main/index.js b/out/main/index.js
-index 771ea56..c5ad7e3 100644
 --- a/out/main/index.js
 +++ b/out/main/index.js
-@@ -1516,8 +1516,46 @@ function resolveStartCli(options) {
+@@ -1516,8 +1516,46 @@
    );
    return getPiCli();
  }
@@ -49,7 +47,7 @@ index 771ea56..c5ad7e3 100644
    if (options.noSession) {
      args.push(NO_SESSION_FLAG);
    }
-@@ -2177,6 +2215,11 @@ const IPC_CHANNELS = {
+@@ -2177,6 +2215,11 @@
    SESSION_CLONE: "session:clone",
    SESSION_LIST: "session:list",
    SESSION_LIST_ALL: "session:list-all",
@@ -61,7 +59,7 @@ index 771ea56..c5ad7e3 100644
    SESSION_RESUME_TARGET: "session:resume-target",
    SESSION_GET_STATE: "session:get-state",
    SESSION_GET_MESSAGES: "session:get-messages",
-@@ -2227,6 +2270,9 @@ const IPC_CHANNELS = {
+@@ -2227,6 +2270,9 @@
    UPDATE_CHECK: "update:check",
    // Activity
    ACTIVITY_GET_STATS: "activity:get-stats",
@@ -71,7 +69,7 @@ index 771ea56..c5ad7e3 100644
    // Workflow run monitoring
    WORKFLOW_LIST: "workflow:list",
    WORKFLOW_GET_RUN: "workflow:get-run",
-@@ -2350,6 +2396,9 @@ const IPC_CHANNELS = {
+@@ -2350,6 +2396,9 @@
    VOICE_CANCEL: "voice:cancel",
    VOICE_REMOVE: "voice:remove",
    VOICE_SELECT: "voice:select",
@@ -81,7 +79,7 @@ index 771ea56..c5ad7e3 100644
    // TypeSafe (Jev): API key storage and agent skill install
    TYPESAFE_STATUS: "typesafe:status",
    TYPESAFE_SAVE_KEY: "typesafe:save-key",
-@@ -4265,12 +4314,36 @@ function getOmpSessionsRoot() {
+@@ -4265,12 +4314,36 @@
    const agentDir = process.env.OMP_CODING_AGENT_DIR || path.join(process.env.HOME ?? process.env.USERPROFILE ?? "", ".omp", "agent");
    return path.join(agentDir, "sessions");
  }
@@ -119,7 +117,7 @@ index 771ea56..c5ad7e3 100644
    return null;
  }
  function engineForBoundSession(bound) {
-@@ -8506,7 +8579,7 @@ const RANGE_DAYS = {
+@@ -8506,7 +8579,7 @@
    "7": 7
  };
  const STORE_FILE_NAME = "activity-stats.json";
@@ -128,7 +126,7 @@ index 771ea56..c5ad7e3 100644
  const JSONL_EXTENSION = ".jsonl";
  const MESSAGE_RECORD_TYPE = "message";
  const MS_PER_DAY = 864e5;
-@@ -8525,16 +8598,168 @@ function sessionIdFromPath$1(filePath) {
+@@ -8525,16 +8598,168 @@
    const base = path.basename(filePath);
    return base.endsWith(JSONL_EXTENSION) ? base.slice(0, -JSONL_EXTENSION.length) : base;
  }
@@ -302,7 +300,7 @@ index 771ea56..c5ad7e3 100644
      if (typeof record !== "object" || record === null) continue;
      const rec = record;
      if (rec.type !== MESSAGE_RECORD_TYPE || typeof rec.timestamp !== "string") continue;
-@@ -8546,14 +8771,43 @@ function parseSessionContent(content) {
+@@ -8546,13 +8771,42 @@
      const hourKey = String(when.getHours());
      bucket.hours[hourKey] = (bucket.hours[hourKey] ?? 0) + 1;
      const msg = rec.message;
@@ -310,6 +308,7 @@ index 771ea56..c5ad7e3 100644
 -      const model = bucket.models[msg.model] ??= { input: 0, output: 0 };
 -      model.input += toFiniteNumber(msg.usage.input);
 -      model.output += toFiniteNumber(msg.usage.output);
+-    }
 +    if (msg && typeof msg === "object" && msg.role === "assistant" && msg.usage && typeof msg.usage === "object") {
 +      if (typeof msg.model === "string") {
 +        const model = bucket.models[msg.model] ??= { input: 0, output: 0 };
@@ -324,17 +323,17 @@ index 771ea56..c5ad7e3 100644
 +        timestamp: when.getTime(),
 +        fingerprint: modUsageV3Fingerprint(msg, when.getTime())
 +      });
-     }
-   }
++    }
++  }
 +  for (const item of latestUsageById.values()) {
 +    modUsageV3TrackMessage(days[item.dayKey], item.msg, {
 +      recordId: item.recordId,
 +      timestamp: item.timestamp,
 +      fingerprint: item.fingerprint
 +    });
-+  }
+   }
    return days;
- }
++}
 +
 +
 +function modUsageLoadProviderSnapshots() {
@@ -346,11 +345,10 @@ index 771ea56..c5ad7e3 100644
 +  } catch {
 +    return {};
 +  }
-+}
+ }
  function newestDay(entry) {
    let max = "";
-   for (const key of Object.keys(entry.days)) if (key > max) max = key;
-@@ -8573,8 +8827,11 @@ class ActivityStatsStore {
+@@ -8573,8 +8827,11 @@
      this.storePathOverride = deps2.storePath;
      this.modelsConfigPathOverride = deps2.modelsConfigPath;
    }
@@ -363,7 +361,7 @@ index 771ea56..c5ad7e3 100644
    }
    modelsFile() {
      if (this.modelsConfigPathOverride) {
-@@ -8598,21 +8855,40 @@ class ActivityStatsStore {
+@@ -8598,21 +8855,40 @@
      if (this.loaded) return;
      this.loaded = true;
      const path2 = this.storePath();
@@ -400,13 +398,14 @@ index 771ea56..c5ad7e3 100644
        }
      } catch {
 -      this.store = { version: STORE_VERSION, sessions: {}, modelNames: {} };
-     }
+-    }
++    }
 +    this.store = { version: STORE_VERSION, sessions: {}, modelNames: {}, usageScope: newScope() };
 +    this.dirty = true;
    }
    /**
     * Refresh id→name mappings from models.json (last-one-wins across providers).
-@@ -8648,7 +8924,7 @@ class ActivityStatsStore {
+@@ -8648,7 +8924,7 @@
    async refresh(now = /* @__PURE__ */ new Date()) {
      this.ensureLoaded();
      const files2 = [];
@@ -415,7 +414,7 @@ index 771ea56..c5ad7e3 100644
      for (const file of files2) {
        const id = sessionIdFromPath$1(file);
        let mtimeMs;
-@@ -8674,7 +8950,7 @@ class ActivityStatsStore {
+@@ -8674,7 +8950,7 @@
    flushSync(now = /* @__PURE__ */ new Date()) {
      this.ensureLoaded();
      const files2 = [];
@@ -424,21 +423,22 @@ index 771ea56..c5ad7e3 100644
      for (const file of files2) {
        const id = sessionIdFromPath$1(file);
        let mtimeMs;
-@@ -8774,9 +9050,11 @@ class ActivityStatsStore {
+@@ -8774,9 +9050,11 @@
      }
      const ranges = {};
      for (const key of Object.keys(RANGE_DAYS)) {
 -      ranges[key] = this.aggregateRange(perDay, todayMidnight, RANGE_DAYS[key]);
+-    }
+-    return { days, ranges };
 +      const currentUsage = usageAggregateRange(this.store.sessions, now, RANGE_DAYS[key], this.store.usageScope?.startedAtMs ?? now.getTime());
 +      const historyUsage = usageAggregateRange(this.store.sessions, now, RANGE_DAYS[key], null);
 +      ranges[key] = { ...this.aggregateRange(perDay, todayMidnight, RANGE_DAYS[key]), usageTelemetry: currentUsage, usageTelemetryHistory: historyUsage };
-     }
--    return { days, ranges };
++    }
 +    return { days, ranges, usageScope: this.store.usageScope, providerSnapshots: modUsageLoadProviderSnapshots() };
    }
    aggregateRange(perDay, todayMidnight, rangeDays) {
      const startKey = localDayKey(new Date(todayMidnight.getTime() - (rangeDays - 1) * MS_PER_DAY));
-@@ -8967,8 +9245,105 @@ async function deleteSessionFile(sessionPath) {
+@@ -8967,8 +9245,105 @@
      };
    }
  }
@@ -544,7 +544,7 @@ index 771ea56..c5ad7e3 100644
    const startRuntime = async (runtime, sessionPath) => {
      const settings2 = await loadAppSettings(workspaceManager2);
      const workspace = workspaceManager2.getWorkspaces().find((item) => item.id === runtime.workspaceId);
-@@ -9085,7 +9460,8 @@ function registerSessionHandlers(ctx) {
+@@ -9085,7 +9460,8 @@
      if (!settings2.resumeLastSession) return null;
      return findLatestProjectSession(await engineProjectSessionDirs(getConfiguredEngineKind(), workspace.path));
    });
@@ -554,7 +554,7 @@ index 771ea56..c5ad7e3 100644
      const pi = workspaceManager2.getActivePiManager();
      if (!pi || pi.getStatus().status !== "running") return null;
      return pi.sendCommand({ type: "get_state" });
-@@ -9255,6 +9631,37 @@ async function collectSessionFiles(entries, sessionsRoot, workspaceBySanitized,
+@@ -9255,6 +9631,37 @@
    } catch {
    }
  }
@@ -592,7 +592,7 @@ index 771ea56..c5ad7e3 100644
  function registerModelHandlers(ctx) {
    const { getActivePi } = ctx;
    electron.ipcMain.handle(IPC_CHANNELS.MODEL_SET, async (_event, provider, modelId) => {
-@@ -9266,7 +9673,20 @@ function registerModelHandlers(ctx) {
+@@ -9266,7 +9673,20 @@
      return getActivePi().sendCommand({ type: "cycle_model" });
    });
    electron.ipcMain.handle(IPC_CHANNELS.MODEL_LIST_AVAILABLE, async () => {
@@ -614,7 +614,7 @@ index 771ea56..c5ad7e3 100644
    });
    electron.ipcMain.handle(IPC_CHANNELS.THINKING_SET_LEVEL, async (_event, level) => {
      if (!isString(level)) throw new Error("level must be a string");
-@@ -11953,6 +12373,330 @@ function dialogTextOptions(options) {
+@@ -11953,6 +12373,330 @@
      ...Array.isArray(options.filters) && { filters: options.filters }
    };
  }
@@ -945,10 +945,12 @@ index 771ea56..c5ad7e3 100644
  function registerSystemHandlers(ctx) {
    const { approvedAttachmentPaths } = ctx;
    electron.ipcMain.handle(IPC_CHANNELS.SYSTEM_OPEN_DIALOG, async (_event, options) => {
-@@ -12002,8 +12746,20 @@ function registerSystemHandlers(ctx) {
+@@ -12002,8 +12746,20 @@
    electron.ipcMain.handle(IPC_CHANNELS.ACTIVITY_GET_STATS, async () => {
      return activityStatsStore.computeStats();
    });
+-}
+-const UPDATE_REPO = "FaqFirebase/pi-desktop";
 +  electron.ipcMain.handle(IPC_CHANNELS.PROVIDER_ACCOUNT_ANALYTICS_GET, async (_event, provider, range) => {
 +    if (!isString(provider) || !isString(range)) throw new Error("provider and range must be strings");
 +    return await modProviderAccountFetch(provider, range);
@@ -961,13 +963,12 @@ index 771ea56..c5ad7e3 100644
 +    if (!isString(provider)) throw new Error("provider must be a string");
 +    return await modProviderAccountDisconnect(provider);
 +  });
- }
--const UPDATE_REPO = "FaqFirebase/pi-desktop";
-+const UPDATE_REPO = "Tibetan777/pi-desktop";
++}
++const UPDATE_REPO = "Tibetan777/pi-desktop-mod";
  const UPDATE_CHECK_TIMEOUT_MS = 8e3;
  async function checkForUpdate() {
    const currentVersion = electron.app.getVersion();
-@@ -12346,6 +13102,7 @@ function isVoicePrecision(value) {
+@@ -12346,6 +13102,7 @@
  function registerVoiceHandlers(ctx) {
    const { workspaceManager: workspaceManager2, broadcast } = ctx;
    let activeInstall = null;
@@ -975,7 +976,7 @@ index 771ea56..c5ad7e3 100644
    async function buildStatus() {
      const settings2 = await loadAppSettings(workspaceManager2);
      return {
-@@ -12360,6 +13117,7 @@ function registerVoiceHandlers(ctx) {
+@@ -12360,6 +13117,7 @@
    electron.ipcMain.handle(IPC_CHANNELS.VOICE_STATUS, async () => buildStatus());
    electron.ipcMain.handle(IPC_CHANNELS.VOICE_INSTALL, async (event, request) => {
      assertTrustedSender(event);
@@ -983,7 +984,7 @@ index 771ea56..c5ad7e3 100644
      if (!isObject(request)) throw new Error("install request must be an object");
      const { modelId, precision } = request;
      if (!isString(modelId)) throw new Error("modelId must be a string");
-@@ -12407,6 +13165,7 @@ function registerVoiceHandlers(ctx) {
+@@ -12407,6 +13165,7 @@
    });
    electron.ipcMain.handle(IPC_CHANNELS.VOICE_REMOVE, async (event, modelId) => {
      assertTrustedSender(event);
@@ -991,7 +992,7 @@ index 771ea56..c5ad7e3 100644
      if (!isString(modelId)) throw new Error("modelId must be a string");
      await removeVoiceModel(modelId);
      const settings2 = await loadAppSettings(workspaceManager2);
-@@ -12422,7 +13181,9 @@ function registerVoiceHandlers(ctx) {
+@@ -12422,7 +13181,9 @@
      if (modelId !== null && !isString(modelId)) throw new Error("modelId must be a string or null");
      if (modelId !== null && !getVoiceModel(modelId)) throw new Error(`Unknown voice model: ${modelId}`);
      if (!isVoicePrecision(precision)) throw new Error("precision must be int8 or fp16");

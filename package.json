@@ -1,15 +1,15 @@
 {
   "name": "pi-desktop",
-  "version": "0.2.0-alpha",
-  "description": "Desktop GUI for the Pi and oh-my-pi coding agents",
+  "version": "0.2.0-alpha.v15.1",
+  "description": "Unofficial Pi Desktop mod/fork with OMP-first V15 defaults and diagnostics",
   "main": "out/main/index.js",
   "desktopName": "pi-desktop.desktop",
   "author": "Pi Desktop GUI Contributors",
   "license": "Apache-2.0",
-  "homepage": "https://pi-desktop.com",
+  "homepage": "https://github.com/Tibetan777/pi-desktop-mod",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FaqFirebase/pi-desktop"
+    "url": "https://github.com/Tibetan777/pi-desktop-mod.git"
   },
   "keywords": [
     "pi",

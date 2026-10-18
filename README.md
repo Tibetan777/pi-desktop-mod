@@ -6,51 +6,78 @@
 
 An **unofficial community mod/fork** of [FaqFirebase/pi-desktop](https://github.com/FaqFirebase/pi-desktop).
 
-This repository does not claim the original Pi Desktop project as its own. It keeps the upstream application and adds a tested V15 modification layer focused on OMP/provider reliability, model capability handling, usage diagnostics, and a Windows release path.
+This repository keeps the upstream Pi Desktop application and adds the tested V15.1 public modification layer used for OMP/provider reliability, model-capability handling, usage diagnostics, session/UI improvements, and a Windows release path.
 
-The app itself is still called **Pi Desktop**. The repository is named **Pi Desktop Mod** to make the relationship clear.
+The application is still called **Pi Desktop**. The repository is named **Pi Desktop Mod** so it cannot be confused with the upstream project.
 
-> **Current public build:** V15, Windows x64. Linux and macOS remain upstream-supported platforms, but this V15 overlay is currently verified and released for Windows only.
+> **Current public build:** V15.1 (`0.2.0-alpha.v15.1`) for Windows x64. This V15 overlay is verified and released for Windows only.
 
 ## Screenshots
 
-Actual V15 mod build, cropped to avoid publishing local project names, sessions, account data, or private usage totals.
+These are the actual V15 mod UI supplied by the maintainer. Usage/model/runtime values are shown as captured; only workspace/project identifiers that are unrelated to the mod are removed or cropped.
 
 ![Pi Desktop Mod home](docs/screenshots/mod-home.png)
 
 ### Usage diagnostics
 
-![Pi Desktop Mod usage filters](docs/screenshots/mod-usage.png)
+![Pi Desktop Mod usage](docs/screenshots/mod-usage.png)
+
+## What you get after installing
+
+The public build is intentionally **OMP-first**, while keeping provider credentials and account configuration private to each user.
+
+| Setting / component | Public V15 behavior |
+| --- | --- |
+| Agent runtime | **OMP** is the default runtime selection. |
+| OMP executable | Pi Desktop looks for `omp` / `omp.exe` using its normal OMP detection. OMP itself is **not bundled** inside the Pi Desktop installer. |
+| Thinking level | Defaults to **low**; model capability checks prevent unsupported effort levels from being invented. |
+| Provider | **Not preset.** You authenticate and configure your own providers. |
+| Model | **Not preset.** The model list comes from your OMP/provider configuration. |
+| Permission mode | Keeps the safer upstream-style **ask-edits** default instead of copying the maintainer's trusted local-machine permission setting. |
+| Theme | Uses the portable **system** theme; private/local themes are not copied. |
+| Voice | Uses Pi Desktop's portable voice workflow. Maintainer-local model files and machine-specific speech acceleration are not included. |
+| Session behavior | Resume-last-session, home launch behavior, thinking display, auto-scroll, and the V15 session/UI improvements remain enabled. |
+| Usage page | Includes selected-period provider → model → session diagnostics and separates local OMP telemetry from provider-native quota/billing data. |
+
+### OMP prerequisite
+
+The mod selects OMP by default, but does not silently install or bundle the OMP executable. Install OMP first if it is not already available:
+
+```powershell
+bun install -g @oh-my-pi/pi-coding-agent
+omp --version
+```
+
+Then open Pi Desktop. In **Settings → Agent Configuration → Agent Installation**, OMP should be detected/selected. If it is installed in a non-standard location, select its executable or install directory there.
+
+After that, configure/authenticate whichever providers you want to use. No maintainer provider, account, model, token, cookie, or OAuth state is included.
 
 ## What this mod adds
 
 | Area | V15 modification |
 | --- | --- |
+| OMP-first defaults | New installs default to OMP runtime selection and low thinking effort, without copying provider/model credentials. |
 | OMP model picker | Recovers from the OMP v1 transport-size failure by negotiating protocol v2 and retrying model discovery once when that exact transport error occurs. |
 | Thinking / effort levels | Uses OMP/provider-advertised capabilities instead of inventing unsupported effort levels. |
 | Usage diagnostics | Separates **local OMP request/journal telemetry** from provider-native account/quota/billing data. Local counters are never presented as provider billing totals. |
-| Usage navigation | Adds clearer provider → model → session filtering and selected-period diagnostics. |
-| Session/UI/runtime | Carries the accepted V15 session, history, UI, usage and runtime improvements from the maintained mod snapshot. |
-| Voice | Keeps Pi Desktop's normal portable local voice workflow. The maintainer's machine-specific speech acceleration layer and local model files are deliberately excluded. |
+| Usage navigation | Adds provider → model → session filtering and selected-period diagnostics. |
+| Session/UI/runtime | Carries the accepted V15 session, history, UI, usage, and runtime improvements from the maintained mod snapshot. |
+| Voice | Keeps the portable voice workflow while excluding machine-specific local speech models/paths. |
 | Windows release | Reproducible Windows x64 CI producing NSIS installer and portable EXE builds. |
-| Updates | Mod releases are distributed from this fork's GitHub Releases. |
+| Updates | Mod update checks target this fork's GitHub Releases. |
 
 For implementation details, see [V15_MOD.md](V15_MOD.md).
 
 ## Download
 
-Use the current V15 prerelease:
+Use the current Windows V15.1 prerelease from [GitHub Releases](https://github.com/Tibetan777/pi-desktop-mod/releases).
 
-**[Pi Desktop Mod V15 — Windows x64](https://github.com/Tibetan777/pi-desktop-mod/releases/tag/v0.2.0-alpha-v15)**
+The Windows release provides:
 
-Available files:
+- an NSIS setup installer — recommended for normal installation;
+- a portable EXE.
 
-- `Pi-Desktop-0.2.0-alpha-win-x64-setup.exe` — NSIS installer, recommended.
-- `Pi-Desktop-0.2.0-alpha-win-x64.exe` — portable build.
-
-The binaries are not code-signed, so Windows SmartScreen may warn on first launch.
-
-Provider credentials are **not** bundled. Install the app, then configure/authenticate your own providers.
+The binaries are currently not code-signed, so Windows SmartScreen may warn on first launch.
 
 ## How V15 is applied
 
@@ -63,15 +90,15 @@ The mod is maintained as a deterministic post-build overlay in `patches/v15/`.
 3. applies the reviewed V15 patches;
 4. verifies the expected V15 output hashes.
 
-If the upstream generated bundle no longer matches the expected base, the overlay **fails closed** rather than patching unknown output.
+If the generated upstream bundle does not match the expected base, the overlay **fails closed** rather than patching unknown output.
 
 ## Build status and platform support
 
 The public V15 release is currently **Windows x64 only**.
 
-The inherited upstream multi-platform release workflow was intentionally changed to Windows-only for this mod because the generated renderer bundle differs by platform. Treating the Windows V15 patch as a Linux/macOS patch caused misleading failed checks even though the Windows build was valid.
+Linux and macOS remain upstream-supported platforms, but this V15 overlay is not claimed as cross-platform. Generated renderer output differs by platform, so the mod CI only publishes the platform that has been verified.
 
-The dedicated `V15 Windows Build` workflow verifies:
+The `V15 Windows Build` workflow verifies:
 
 - lint;
 - unit tests;
@@ -88,18 +115,15 @@ This public fork intentionally excludes maintainer-specific runtime data, includ
 - provider account state;
 - cookies and Electron/browser profiles;
 - OAuth access/refresh tokens;
-- API keys, GitHub tokens and private keys;
+- API keys, GitHub tokens, and private keys;
 - local recovery archives;
 - local model files and private machine-specific model paths;
-- the maintainer's private native speech acceleration setup.
+- the maintainer's private native speech acceleration setup;
+- private workspace/project identifiers from documentation screenshots.
 
-Screenshots in this README are privacy-safe crops from the actual mod UI.
+The public screenshots keep normal UI, usage, model, and runtime information visible. Only unrelated workspace/project identifiers are removed or cropped; credentials are never intentionally included.
 
 ## Build from source
-
-This fork inherits the upstream build prerequisites. See the [upstream project](https://github.com/FaqFirebase/pi-desktop) for the full platform/development documentation.
-
-For the supported Windows V15 build:
 
 ```powershell
 git clone https://github.com/Tibetan777/pi-desktop-mod.git
@@ -115,9 +139,9 @@ npx --no-install electron-builder --win nsis portable --x64 --publish never
 
 Original project: **[FaqFirebase/pi-desktop](https://github.com/FaqFirebase/pi-desktop)**
 
-Pi Desktop is a free, open-source Electron GUI for Pi and oh-my-pi coding agents. This repository is a fork that adds the modifications described above.
+Pi Desktop is a free, open-source Electron GUI for Pi and oh-my-pi coding agents. This repository is a community fork that adds the modifications documented above.
 
-Please use the upstream repository for the original project, upstream documentation, cross-platform releases, and upstream issue tracking.
+For the original project, upstream documentation, and upstream cross-platform releases, use the upstream repository.
 
 ## License
 

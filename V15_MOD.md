@@ -1,54 +1,66 @@
-# Pi Desktop Mod V15
+# Pi Desktop Mod V15.1
 
-This fork publishes the tested V15 modifications for [FaqFirebase/pi-desktop](https://github.com/FaqFirebase/pi-desktop) as a deterministic post-build overlay.
+This repository is an **unofficial community mod/fork** of [FaqFirebase/pi-desktop](https://github.com/FaqFirebase/pi-desktop).
 
-It is an **unofficial community mod/fork**. The application remains Pi Desktop; this repository is named Pi Desktop Mod to distinguish it from the upstream project.
+V15.1 is maintained as a deterministic post-build overlay and is currently verified for **Windows x64**.
+
+## Public defaults
+
+Fresh public installs intentionally use a portable, OMP-first configuration:
+
+- `piEngine: 'omp'`
+- `piExecutablePath: 'omp'`
+- `defaultThinkingLevel: 'low'`
+- provider: unset
+- model: unset
+- permission mode: `ask-edits`
+- theme: `system`
+- portable voice configuration only
+
+These defaults reproduce the useful OMP-oriented behavior of the maintainer's setup without copying private provider/account state, trusted-machine permissions, private themes, or machine-local voice models.
+
+OMP itself is an external runtime and is not bundled into the Pi Desktop installer. The source's supported OMP install command is:
+
+```powershell
+bun install -g @oh-my-pi/pi-coding-agent
+```
+
+Pi Desktop then detects `omp` / `omp.exe`; a custom executable/install-directory path can also be selected in Settings.
 
 ## Build model
 
-`npm run build` first runs the normal upstream `electron-vite build`, then applies the reviewed patches in `patches/v15/`. `scripts/apply-v15-overlay.mjs` checks the expected clean-bundle SHA-256 values before patching and verifies the expected public V15 SHA-256 values afterward. If the upstream generated bundle changes, the overlay fails closed instead of patching an unknown build.
+`npm run build` runs the upstream `electron-vite build`, then applies the reviewed patches in `patches/v15/`. `scripts/apply-v15-overlay.mjs` verifies the clean bundle SHA-256 values before patching and the expected public V15 SHA-256 values afterward.
+
+If the generated base changes, the overlay fails closed instead of applying to unknown output.
 
 ## Included V15 behavior
 
-- OMP-oriented provider/model handling and model-picker transport recovery.
-- Provider-advertised thinking/effort capability handling without inventing unsupported levels.
-- Usage/account telemetry separation so local OMP diagnostics are not presented as provider billing/account totals.
+- OMP model discovery and model-picker transport recovery.
+- Provider-advertised thinking/effort capability handling.
+- Local OMP telemetry kept distinct from provider-native account/quota/billing data.
 - Provider → model → session filtering for selected-period usage diagnostics.
-- Session, UI, history, usage and runtime improvements carried by the accepted V15 snapshot.
-- The built-in portable voice models and normal Pi Desktop voice workflow remain available.
-- Update checks point to this fork's GitHub releases.
+- Session, history, UI, usage, and runtime improvements from the accepted V15 mod.
+- Portable Pi Desktop voice workflow.
+- Update checks directed to this fork's releases.
 
 ## Platform support
 
-The public V15 overlay is verified and released for **Windows x64**.
-
-Linux and macOS remain supported by upstream Pi Desktop, but this V15 overlay is not currently claimed as cross-platform. The renderer build output differs across operating systems, so the public mod CI deliberately refuses to imply Linux/macOS V15 compatibility without separate patches and verification.
+The public V15 overlay is verified and released for **Windows x64** only. Upstream Pi Desktop supports additional platforms, but this fork does not claim V15 Linux/macOS compatibility until separate generated bundles are tested and supported.
 
 ## Public portability boundary
 
-The maintainer's local V15 installation also has a private machine-local native speech acceleration layer that references models and executables stored on a specific local drive. That machine-specific layer is intentionally excluded from this public fork. It is not required for the standard portable voice models and would be invalid on another user's machine.
+The maintainer's local installation has additional machine-specific configuration. It is deliberately not copied into the public build.
 
-No local model files, local model paths, provider credentials, account state, sessions or other maintainer-specific runtime data are part of this repository or its release builds.
+Excluded material includes local model files/paths, provider credentials, account state, sessions, usage journals, cookies, OAuth state, private keys, recovery archives, local themes, and private native speech acceleration.
 
 ## Provider setup
 
-Provider configuration is intentionally not bundled. After installation, each user configures and authenticates their own providers.
+Provider configuration is never bundled. Each user authenticates and configures their own providers and models after OMP is available.
 
-## Windows installer
+## Windows packaging
 
-The supported release artifacts are built by Electron Builder:
-
-- `Pi-Desktop-0.2.0-alpha-win-x64-setup.exe` — NSIS installer.
-- `Pi-Desktop-0.2.0-alpha-win-x64.exe` — portable executable.
-
-This fork does not use MSI.
-
-## Privacy
-
-Never commit or package Pi Desktop user data, sessions, activity stores, OMP journals, browser/Electron profiles, cookies, OAuth tokens, API keys, GitHub tokens, private keys, recovery archives, personal prompt/history logs, or local model blobs.
-
-Release artifacts are built on GitHub Actions from repository contents so the build runner has no access to the maintainer's local AppData or provider credentials.
+Electron Builder produces an NSIS setup executable plus a portable Windows executable. This fork does not use MSI.
 
 ## License
 
-The upstream project is Apache-2.0 licensed. This fork retains the upstream license and attribution.
+The upstream project is Apache-2.0 licensed. This fork retains upstream license and attribution.

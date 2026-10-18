@@ -278,7 +278,7 @@ describe('normal tab (no repo map)', () => {
     const askEdits = await loadExtension({ ...singleRepo, [MODE_ENV]: ASK_EDITS_MODE })
     const edit = await runToolCall(askEdits, root, 'write', { path: 'src/a.ts', content: 'x' })
     assert.deepEqual(edit, {
-      prompt: 'Allow write?\n\nPi wants to run the write tool.\n\nTarget: src/a.ts',
+      prompt: 'Allow write?\n\nOMP wants to run the write tool.\n\nTarget: src/a.ts',
       blocked: 'User denied write permission in Pi Desktop.',
     })
     assert.deepEqual(await runToolCall(askEdits, root, 'read', { path: '~/.bashrc' }), { prompt: null, blocked: null })

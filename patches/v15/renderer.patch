@@ -1,15 +1,9 @@
-diff --git a/out/renderer/assets/index-Ze1u3kee.js b/out/renderer/assets/index-Ze1u3kee.js
-index abe1781..ac925c3 100644
---- a/out/renderer/assets/index-Ze1u3kee.js
-+++ b/out/renderer/assets/index-Ze1u3kee.js
-@@ -25975,6 +25975,17 @@ function Sidebar() {
-                   title: t2("sidebar.tools.allWorkflowsTitle")
-                 }
-               ),
-+              /* @__PURE__ */ jsxRuntimeExports.jsx(
-+                SidebarItem,
-+                {
-+                  compact: true,
+--- a/out/renderer/assets/index-BvwTAwqv.js
++++ b/out/renderer/assets/index-BvwTAwqv.js
+@@ -25979,6 +25979,17 @@
+                 SidebarItem,
+                 {
+                   compact: true,
 +                  icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Activity, { size: 13 }),
 +                  label: "Usage",
 +                  active: toolViewShowing("usage"),
@@ -17,10 +11,14 @@ index abe1781..ac925c3 100644
 +                  title: "Input / Output / Cache by provider and model"
 +                }
 +              ),
-               /* @__PURE__ */ jsxRuntimeExports.jsx(
-                 SidebarItem,
-                 {
-@@ -26787,10 +26798,20 @@ function filterModels(models2, query) {
++              /* @__PURE__ */ jsxRuntimeExports.jsx(
++                SidebarItem,
++                {
++                  compact: true,
+                   icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Settings, { size: 13 }),
+                   label: t2("common.settings"),
+                   active: toolViewShowing("settings"),
+@@ -26787,10 +26798,20 @@
    });
  }
  function thinkingLevels(model) {
@@ -43,7 +41,7 @@ index abe1781..ac925c3 100644
  }
  function stepThinkingLevel(levels, current, step) {
    const index2 = levels.indexOf(current);
-@@ -26881,11 +26902,13 @@ function ModelSelector({ className, compact = false }) {
+@@ -26881,11 +26902,13 @@
    }, [highlighted]);
    const highlightedModel = filteredModels[highlighted];
    const draftFor = (model) => model && effortDraft?.model.id === model.id && effortDraft.model.provider === model.provider ? effortDraft.level : void 0;
@@ -59,7 +57,7 @@ index abe1781..ac925c3 100644
      setRecency(recordModelUse(model));
      close();
    };
-@@ -26900,8 +26923,9 @@ function ModelSelector({ className, compact = false }) {
+@@ -26900,8 +26923,9 @@
        e.preventDefault();
        e.stopPropagation();
        if (loading || piStatus !== "running" || !highlightedModel) return;
@@ -70,7 +68,7 @@ index abe1781..ac925c3 100644
          displayedEffort,
          e.key === "ArrowRight" ? 1 : -1
        );
-@@ -26979,7 +27003,7 @@ function ModelSelector({ className, compact = false }) {
+@@ -26979,7 +27003,7 @@
              }
            )
          ] }),
@@ -79,7 +77,7 @@ index abe1781..ac925c3 100644
            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "min-w-0 flex-1 truncate", children: t2("thinking.effortWithLevel", { level: displayedEffort }) }),
            /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowLeft, { size: 12, "aria-hidden": "true" }),
            /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowRight, { size: 12, "aria-hidden": "true" })
-@@ -27239,6 +27263,7 @@ function getWorker(engineKey) {
+@@ -27239,6 +27263,7 @@
    return created;
  }
  function transcribeAudio(audio, model, precision) {
@@ -87,7 +85,7 @@ index abe1781..ac925c3 100644
    const id2 = nextRequestId++;
    const request = { id: id2, audio, model, precision, wasmBaseUrl: WASM_BASE_URL };
    const target = getWorker(voiceEngineKey(model.id, precision));
-@@ -27302,6 +27327,7 @@ function useVoiceDictation(handlers2) {
+@@ -27302,6 +27327,7 @@
      clearTimer();
      recorderRef.current?.cancel();
      recorderRef.current = null;
@@ -95,7 +93,7 @@ index abe1781..ac925c3 100644
      setPhase("idle");
    }, []);
    reactExports.useEffect(() => cancel, [cancel]);
-@@ -27344,6 +27370,7 @@ function useVoiceDictation(handlers2) {
+@@ -27344,6 +27370,7 @@
        console.error("[voice] transcription failed", err);
        setError(err instanceof Error ? err.message : String(err));
      } finally {
@@ -103,7 +101,7 @@ index abe1781..ac925c3 100644
        if (!session.discarded) setPhase("idle");
      }
    }, [model, status2]);
-@@ -27355,9 +27382,13 @@ function useVoiceDictation(handlers2) {
+@@ -27355,9 +27382,13 @@
      stoppedRef.current = false;
      try {
        const recorder = new VoiceRecorder();
@@ -117,7 +115,7 @@ index abe1781..ac925c3 100644
          return;
        }
        recorderRef.current = recorder;
-@@ -27399,6 +27430,7 @@ function useVoiceDictation(handlers2) {
+@@ -27399,6 +27430,7 @@
        }, TICK_MS);
        if (startedByHold && !heldRef.current) void finalize();
      } catch (err) {
@@ -125,7 +123,7 @@ index abe1781..ac925c3 100644
        setError(err instanceof Error ? err.message : String(err));
        setPhase("idle");
      } finally {
-@@ -27442,7 +27474,7 @@ function ThinkingLevelSelector({ className }) {
+@@ -27442,7 +27474,7 @@
    const [isOpen, setIsOpen2] = reactExports.useState(false);
    const ref = reactExports.useRef(null);
    const levels = thinkingLevels(sessionState?.model);
@@ -134,7 +132,7 @@ index abe1781..ac925c3 100644
    reactExports.useEffect(() => {
      if (!isOpen) return;
      const handleClick = (event) => {
-@@ -27451,7 +27483,7 @@ function ThinkingLevelSelector({ className }) {
+@@ -27451,7 +27483,7 @@
      document.addEventListener("mousedown", handleClick);
      return () => document.removeEventListener("mousedown", handleClick);
    }, [isOpen]);
@@ -143,7 +141,7 @@ index abe1781..ac925c3 100644
    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref, className: clsx("relative", className), children: [
      /* @__PURE__ */ jsxRuntimeExports.jsxs(
        "button",
-@@ -94501,7 +94533,396 @@ function useElementMeasure(read, fallback2) {
+@@ -94505,7 +94537,396 @@
    const ref = reactExports.useMemo(() => createMeasureRef(read, setValue), [read]);
    return [value, ref];
  }
@@ -213,12 +211,12 @@ index abe1781..ac925c3 100644
 +  const txt=String(item.text||"");
 +  const expanded=txt.length>1400;
 +  const body=expanded?c("details",{key:"body"},[
-+   c("summary",{key:"preview",style:{cursor:"pointer",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}},txt.slice(0,500)+"… (expand)"),
++   c("summary",{key:"preview",style:{cursor:"pointer",whiteSpace:"pre-wrap",overflowWrap:"anywhere"}},txt.slice(0,500)+"? (expand)"),
 +   c("pre",{key:"full",style:{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",marginTop:8,fontFamily:"inherit"}},txt)
 +  ]):c("pre",{key:"body",style:{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",fontFamily:"inherit"}},txt);
 +  return c("div",{key:item.id||i,style:{display:"flex",width:"100%",justifyContent:isUser?"flex-end":isAgent?"flex-start":"center",marginBottom:12,minWidth:0}},
 +    c("article",{style:{boxSizing:"border-box",maxWidth:"76%",minWidth:0,width:"fit-content",border:"1px solid var(--border,#554b48)",borderRadius:10,padding:"10px 12px",background:isUser?"var(--surface-hover,#382e29)":"var(--surface,#27211d)",overflowWrap:"anywhere",fontSize:12}},[
-+      c("div",{key:"meta",style:{fontSize:10,opacity:.7,marginBottom:7}},(isUser?"You":isAgent?"Agent":"Tool")+" · "+(item.at||"")+(item.truncated?" · excerpt":"")),
++      c("div",{key:"meta",style:{fontSize:10,opacity:.7,marginBottom:7}},(isUser?"You":isAgent?"Agent":"Tool")+" ? "+(item.at||"")+(item.truncated?" ? excerpt":"")),
 +      body
 +    ]));
 + };
@@ -226,9 +224,9 @@ index abe1781..ac925c3 100644
 +  const list=group.entries||[];
 +  const calls=list.filter(x=>x.kind==="call").length;
 +  return c("details",{key:group.id||i,style:{margin:"8px 0",padding:"8px 11px",maxWidth:"76%",boxSizing:"border-box",border:"1px solid var(--border,#554b48)",borderRadius:9,background:"var(--surface,#24201d)",fontSize:12}},
-+  [c("summary",{key:"sum",style:{cursor:"pointer",opacity:.85}},"Tool activity · "+calls+" calls / "+(list.length-calls)+" results · "+(list[0]?.at||"")+" (expand)"),
++  [c("summary",{key:"sum",style:{cursor:"pointer",opacity:.85}},"Tool activity ? "+calls+" calls / "+(list.length-calls)+" results ? "+(list[0]?.at||"")+" (expand)"),
 +   ...list.map((x,j)=>c("div",{key:x.id||j,style:{borderTop:"1px solid var(--border,#554b48)",marginTop:8,paddingTop:8}},[
-+     c("div",{key:"label",style:{fontSize:10,opacity:.7}},(x.kind==="call"?"Call":"Result")+" · "+x.at),
++     c("div",{key:"label",style:{fontSize:10,opacity:.7}},(x.kind==="call"?"Call":"Result")+" ? "+x.at),
 +     c("pre",{key:"text",style:{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",fontSize:11,fontFamily:"inherit"}},x.text)
 +   ]))
 +  ]);
@@ -252,7 +250,7 @@ index abe1781..ac925c3 100644
 +   c("button",{key:"refresh",type:"button",disabled:loading,onClick:()=>void fetchPage(null,true),style:buttonStyle},"Refresh"),
 +   c("button",{key:"copy",type:"button",disabled:loading||!allowed.length,onClick:()=>void copy(),style:buttonStyle},"Copy history")
 +  ]),
-+  c("div",{key:"status",style:{flexShrink:0,padding:"6px 16px",fontSize:11,opacity:.75}},loading?"Loading journal…":rows.length+" entries loaded · "+allowed.length+" in "+(raw?"Tool details":"Clean chat")+" · "+(fileBytes?Math.round(fileBytes/1048576)+" MiB journal":"no journal size")+ (cursor===0?" · beginning reached":" · older records available")),
++  c("div",{key:"status",style:{flexShrink:0,padding:"6px 16px",fontSize:11,opacity:.75}},loading?"Loading journal?":rows.length+" entries loaded ? "+allowed.length+" in "+(raw?"Tool details":"Clean chat")+" ? "+(fileBytes?Math.round(fileBytes/1048576)+" MiB journal":"no journal size")+ (cursor===0?" ? beginning reached":" ? older records available")),
 +  error&&c("div",{key:"error",role:"alert",style:{padding:"6px 16px",color:"#e1aa7a"}},error),
 +  info&&c("div",{key:"info",role:"status",style:{padding:"6px 16px"}},info),
 +  c("div",{key:"scroll",ref:scroll,style:{flex:"1 1 0",minHeight:0,overflowY:"auto",overflowX:"hidden",overscrollBehavior:"contain",padding:"16px 20px"}},packed.map((x,i)=>x.group?makeTool(x,i):makeBubble(x,i)))
@@ -441,7 +439,7 @@ index abe1781..ac925c3 100644
 +  if (!exactSession && !runtime) return null;
 +  const fastKnown = exactSession && typeof sessionState?.fastModeEnabled === "boolean";
 +  const queueCount = steering.length + followUp.length;
-+  const todoSummary = "Pending "+pendingTodo.length+" · In Progress "+workingTodo.length+" · Completed "+doneTodo.length+(otherTodo.length?" · Other "+otherTodo.length:"");
++  const todoSummary = "Pending "+pendingTodo.length+" ? In Progress "+workingTodo.length+" ? Completed "+doneTodo.length+(otherTodo.length?" ? Other "+otherTodo.length:"");
 +  const showFast = fastKnown ? (fastActive ? "Fast active" : fastEnabled ? "Fast requested" : "Standard") : "Fast unknown";
 +  const speed = exactSession && typeof sessionState?.tokensPerSecond === "number"
 +    ? sessionState.tokensPerSecond.toFixed(1) + " tok/s"
@@ -468,8 +466,8 @@ index abe1781..ac925c3 100644
 +        onClick: () => setOpen(!open),
 +        children: [
 +          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold", children: "OMP controls" }),
-+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-muted", children: showFast + " · " + speed + " · Queued user messages " + queueCount + " · TODO: " + todoSummary }),
-+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-auto text-muted", children: open ? "▾" : "▸" })
++          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-muted", children: showFast + " ? " + speed + " ? Queued user messages " + queueCount + " ? TODO: " + todoSummary }),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "ml-auto text-muted", children: open ? "?" : "?" })
 +        ]
 +      }),
 +      open && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
@@ -481,7 +479,7 @@ index abe1781..ac925c3 100644
 +              type: "button", className: "rounded border border-border px-2 py-1",
 +              disabled: !!busy || loading || !exactSession,
 +              onClick: () => setConfirmFast(true),
-+              children: "Enable fast…"
++              children: "Enable fast?"
 +            }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
 +              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Priority tier may cost more; no model or thinking change." }),
 +              /* @__PURE__ */ jsxRuntimeExports.jsx("button", {
@@ -504,11 +502,11 @@ index abe1781..ac925c3 100644
 +            })
 +          ] }),
 +          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted", children: "Fast is an OMP runtime request, not a model switch. During streaming it may apply only to the NEXT provider request. Active status requires provider support." }),
-+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-semibold", children: "Queued user messages (" + queueCount + "): Steer "+steering.length+" · Next "+followUp.length }),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-semibold", children: "Queued user messages (" + queueCount + "): Steer "+steering.length+" ? Next "+followUp.length }),
 +          !queueCount && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-muted", children: "No queued user messages. This is separate from TODO Pending." }),
 +          ...steering.map((m, i) => row(m, "steering", i)),
 +          ...followUp.map((m, i) => row(m, "followUp", i)),
-+          /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"font-semibold",children:"OMP TODO "+todos.length+" total — "+todoSummary}),
++          /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"font-semibold",children:"OMP TODO "+todos.length+" total ? "+todoSummary}),
 +          !todos.length && /* @__PURE__ */ jsxRuntimeExports.jsx("div",{className:"text-muted",children:"No engine-reported TODO tasks"}),
 +          ...taskGroup("In Progress",workingTodo),
 +          ...taskGroup("Pending",pendingTodo),
@@ -540,7 +538,7 @@ index abe1781..ac925c3 100644
    const { t: t2 } = useTranslation();
    const messages = useAppStore((state) => state.messages);
    const sessionLoading = useAppStore((state) => state.sessionLoading);
-@@ -94678,7 +95099,9 @@ function ChatPanel() {
+@@ -94682,7 +95103,9 @@
    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-1 flex-col overflow-hidden", children: [
      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: panelRowRef, className: "grid min-h-0 flex-1 overflow-hidden", style: resolvePaneGrid(paneLayout), children: [
        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chat-center flex flex-col overflow-hidden", style: { gridArea: PANE_GRID_AREA.chat }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: chatDropZoneRef, className: "relative flex min-h-0 flex-1 flex-col", children: [
@@ -551,7 +549,7 @@ index abe1781..ac925c3 100644
            ChatSearch,
            {
              containerRef: scrollRef,
-@@ -94686,7 +95109,7 @@ function ChatPanel() {
+@@ -94690,7 +95113,7 @@
              onClose: () => setSearchOpen(false)
            }
          ),
@@ -560,7 +558,7 @@ index abe1781..ac925c3 100644
            const isEmptyChat = !sessionLoading && messages.length === 0 && !isStreaming;
            if (isEmptyChat) {
              return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-10", children: [
-@@ -95181,6 +95604,7 @@ async function probeGpu() {
+@@ -95185,6 +95608,7 @@
    }
    return { available: false, name: null };
  }
@@ -568,7 +566,7 @@ index abe1781..ac925c3 100644
  function VoiceSettings() {
    const { t: t2 } = useTranslation();
    const [status2, setStatus] = reactExports.useState(null);
-@@ -95292,7 +95716,7 @@ function VoiceSettings() {
+@@ -95296,7 +95720,7 @@
              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3", children: [
                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
@@ -577,7 +575,7 @@ index abe1781..ac925c3 100644
                    isSelected && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1 text-[10px] text-accent", children: [
                      /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size: 11 }),
                      " ",
-@@ -95304,11 +95728,11 @@ function VoiceSettings() {
+@@ -95308,11 +95732,11 @@
                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: model.languages === "multi" ? t2("settings.voice.multilingual") : t2("settings.voice.englishOnly") }),
                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: t2("settings.voice.sizeMb", { mb: sizeMb }) }),
                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: model.license }),
@@ -591,7 +589,7 @@ index abe1781..ac925c3 100644
                    "button",
                    {
                      type: "button",
-@@ -99603,8 +100027,20 @@ function StatsPanel() {
+@@ -99607,8 +100031,20 @@
    }, [data2, range]);
    if (!data2 || data2.ranges["365"].messages === 0) return null;
    const stats2 = data2.ranges[range];
@@ -613,7 +611,7 @@ index abe1781..ac925c3 100644
    const modelColor = new Map(
      orderedModels.map((model, i) => [model, MODEL_DOT_COLORS[i % MODEL_DOT_COLORS.length]])
    );
-@@ -99639,7 +100075,7 @@ function StatsPanel() {
+@@ -99643,7 +100079,7 @@
        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4", children: [
          /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.sessionsLabel"), value: stats2.sessions.toLocaleString(i18n2.language) }),
          /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.messagesLabel"), value: stats2.messages.toLocaleString(i18n2.language) }),
@@ -622,7 +620,7 @@ index abe1781..ac925c3 100644
          /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.activeDaysLabel"), value: stats2.activeDays.toLocaleString(i18n2.language) }),
          /* @__PURE__ */ jsxRuntimeExports.jsx(
            StatCard,
-@@ -99660,11 +100096,422 @@ function StatsPanel() {
+@@ -99664,11 +100100,422 @@
        ] }),
        /* @__PURE__ */ jsxRuntimeExports.jsx(Heatmap, { days: rangedDays })
      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -687,7 +685,7 @@ index abe1781..ac925c3 100644
 +  if (limit?.window?.label) parts.push(limit.window.label);
 +  if (typeof limit?.amount?.remainingFraction === "number") parts.push((limit.amount.remainingFraction * 100).toFixed(1) + "% remaining");
 +  if (typeof limit?.window?.resetsAt === "number") parts.push("resets " + new Date(limit.window.resetsAt).toLocaleString());
-+  return parts.join(" · ") || "Provider-native quota";
++  return parts.join(" ? ") || "Provider-native quota";
 +}
 +function UsageTelemetryPanel() {
 +  const [data, setData] = reactExports.useState(null);
@@ -971,7 +969,7 @@ index abe1781..ac925c3 100644
 +                    ]
 +                  }, limit.id || String(index)))
 +                }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: "Provider returned a native usage report without numeric limits." }),
-+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-xs text-faint", children: "Synced " + new Date(accountAnalytics.fetchedAt).toLocaleString() + (accountAnalytics.metadata?.planType ? " · plan " + accountAnalytics.metadata.planType : "") })
++                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2 text-xs text-faint", children: "Synced " + new Date(accountAnalytics.fetchedAt).toLocaleString() + (accountAnalytics.metadata?.planType ? " ? plan " + accountAnalytics.metadata.planType : "") })
 +              ] })
 +              : /* @__PURE__ */ jsxRuntimeExports.jsx("div", {
 +                className: "rounded-md border border-border bg-card/30 px-3 py-3 text-sm text-muted",
@@ -1047,7 +1045,7 @@ index abe1781..ac925c3 100644
  const MAX_RECENT_WORKSPACES = 6;
  const MAX_RECENT_SESSIONS = 5;
  const MAX_CHANGED_FILES = 8;
-@@ -103932,7 +104779,8 @@ function App() {
+@@ -103936,7 +104783,8 @@
                currentView === "diff" && /* @__PURE__ */ jsxRuntimeExports.jsx(DiffViewer, {}),
                currentView === "notes" && /* @__PURE__ */ jsxRuntimeExports.jsx(NotesPanel, {}),
                currentView === "skills" && /* @__PURE__ */ jsxRuntimeExports.jsx(SkillsPanel, {}),
