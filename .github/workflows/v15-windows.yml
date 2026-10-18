@@ -1,6 +1,8 @@
 name: V15 Windows Build
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
