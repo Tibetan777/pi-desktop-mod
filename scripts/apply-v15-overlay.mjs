@@ -1,8 +1,9 @@
-import { createHash } from 'node:crypto'
+﻿import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import console from 'node:console'
+import { fileURLToPath, URL } from 'node:url'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const specs = [
