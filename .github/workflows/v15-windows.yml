@@ -3,6 +3,7 @@ name: V15 Windows Build
 on:
   push:
     branches: [master]
+    tags: ['v0.2.0-alpha.v15.1']
   workflow_dispatch:
 
 permissions:
