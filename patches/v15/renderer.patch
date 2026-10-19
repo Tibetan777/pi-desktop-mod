@@ -1,9 +1,15 @@
+diff --git a/out/renderer/assets/index-BvwTAwqv.js b/out/renderer/assets/index-BvwTAwqv.js
+index 966743a..2660956 100644
 --- a/out/renderer/assets/index-BvwTAwqv.js
 +++ b/out/renderer/assets/index-BvwTAwqv.js
-@@ -25979,6 +25979,17 @@
-                 SidebarItem,
-                 {
-                   compact: true,
+@@ -25975,6 +25975,17 @@ function Sidebar() {
+                   title: t2("sidebar.tools.allWorkflowsTitle")
+                 }
+               ),
++              /* @__PURE__ */ jsxRuntimeExports.jsx(
++                SidebarItem,
++                {
++                  compact: true,
 +                  icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Activity, { size: 13 }),
 +                  label: "Usage",
 +                  active: toolViewShowing("usage"),
@@ -11,14 +17,10 @@
 +                  title: "Input / Output / Cache by provider and model"
 +                }
 +              ),
-+              /* @__PURE__ */ jsxRuntimeExports.jsx(
-+                SidebarItem,
-+                {
-+                  compact: true,
-                   icon: /* @__PURE__ */ jsxRuntimeExports.jsx(Settings, { size: 13 }),
-                   label: t2("common.settings"),
-                   active: toolViewShowing("settings"),
-@@ -26787,10 +26798,20 @@
+               /* @__PURE__ */ jsxRuntimeExports.jsx(
+                 SidebarItem,
+                 {
+@@ -26787,10 +26798,20 @@ function filterModels(models2, query) {
    });
  }
  function thinkingLevels(model) {
@@ -41,7 +43,7 @@
  }
  function stepThinkingLevel(levels, current, step) {
    const index2 = levels.indexOf(current);
-@@ -26881,11 +26902,13 @@
+@@ -26881,11 +26902,13 @@ function ModelSelector({ className, compact = false }) {
    }, [highlighted]);
    const highlightedModel = filteredModels[highlighted];
    const draftFor = (model) => model && effortDraft?.model.id === model.id && effortDraft.model.provider === model.provider ? effortDraft.level : void 0;
@@ -57,7 +59,7 @@
      setRecency(recordModelUse(model));
      close();
    };
-@@ -26900,8 +26923,9 @@
+@@ -26900,8 +26923,9 @@ function ModelSelector({ className, compact = false }) {
        e.preventDefault();
        e.stopPropagation();
        if (loading || piStatus !== "running" || !highlightedModel) return;
@@ -68,7 +70,7 @@
          displayedEffort,
          e.key === "ArrowRight" ? 1 : -1
        );
-@@ -26979,7 +27003,7 @@
+@@ -26979,7 +27003,7 @@ function ModelSelector({ className, compact = false }) {
              }
            )
          ] }),
@@ -77,7 +79,7 @@
            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "min-w-0 flex-1 truncate", children: t2("thinking.effortWithLevel", { level: displayedEffort }) }),
            /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowLeft, { size: 12, "aria-hidden": "true" }),
            /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowRight, { size: 12, "aria-hidden": "true" })
-@@ -27239,6 +27263,7 @@
+@@ -27239,6 +27263,7 @@ function getWorker(engineKey) {
    return created;
  }
  function transcribeAudio(audio, model, precision) {
@@ -85,7 +87,7 @@
    const id2 = nextRequestId++;
    const request = { id: id2, audio, model, precision, wasmBaseUrl: WASM_BASE_URL };
    const target = getWorker(voiceEngineKey(model.id, precision));
-@@ -27302,6 +27327,7 @@
+@@ -27302,6 +27327,7 @@ function useVoiceDictation(handlers2) {
      clearTimer();
      recorderRef.current?.cancel();
      recorderRef.current = null;
@@ -93,7 +95,7 @@
      setPhase("idle");
    }, []);
    reactExports.useEffect(() => cancel, [cancel]);
-@@ -27344,6 +27370,7 @@
+@@ -27344,6 +27370,7 @@ function useVoiceDictation(handlers2) {
        console.error("[voice] transcription failed", err);
        setError(err instanceof Error ? err.message : String(err));
      } finally {
@@ -101,7 +103,7 @@
        if (!session.discarded) setPhase("idle");
      }
    }, [model, status2]);
-@@ -27355,9 +27382,13 @@
+@@ -27355,9 +27382,13 @@ function useVoiceDictation(handlers2) {
      stoppedRef.current = false;
      try {
        const recorder = new VoiceRecorder();
@@ -115,7 +117,7 @@
          return;
        }
        recorderRef.current = recorder;
-@@ -27399,6 +27430,7 @@
+@@ -27399,6 +27430,7 @@ function useVoiceDictation(handlers2) {
        }, TICK_MS);
        if (startedByHold && !heldRef.current) void finalize();
      } catch (err) {
@@ -123,7 +125,7 @@
        setError(err instanceof Error ? err.message : String(err));
        setPhase("idle");
      } finally {
-@@ -27442,7 +27474,7 @@
+@@ -27442,7 +27474,7 @@ function ThinkingLevelSelector({ className }) {
    const [isOpen, setIsOpen2] = reactExports.useState(false);
    const ref = reactExports.useRef(null);
    const levels = thinkingLevels(sessionState?.model);
@@ -132,7 +134,7 @@
    reactExports.useEffect(() => {
      if (!isOpen) return;
      const handleClick = (event) => {
-@@ -27451,7 +27483,7 @@
+@@ -27451,7 +27483,7 @@ function ThinkingLevelSelector({ className }) {
      document.addEventListener("mousedown", handleClick);
      return () => document.removeEventListener("mousedown", handleClick);
    }, [isOpen]);
@@ -141,7 +143,7 @@
    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref, className: clsx("relative", className), children: [
      /* @__PURE__ */ jsxRuntimeExports.jsxs(
        "button",
-@@ -94505,7 +94537,396 @@
+@@ -94501,7 +94533,396 @@ function useElementMeasure(read, fallback2) {
    const ref = reactExports.useMemo(() => createMeasureRef(read, setValue), [read]);
    return [value, ref];
  }
@@ -538,7 +540,7 @@
    const { t: t2 } = useTranslation();
    const messages = useAppStore((state) => state.messages);
    const sessionLoading = useAppStore((state) => state.sessionLoading);
-@@ -94682,7 +95103,9 @@
+@@ -94678,7 +95099,9 @@ function ChatPanel() {
    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-1 flex-col overflow-hidden", children: [
      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: panelRowRef, className: "grid min-h-0 flex-1 overflow-hidden", style: resolvePaneGrid(paneLayout), children: [
        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chat-center flex flex-col overflow-hidden", style: { gridArea: PANE_GRID_AREA.chat }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: chatDropZoneRef, className: "relative flex min-h-0 flex-1 flex-col", children: [
@@ -549,7 +551,7 @@
            ChatSearch,
            {
              containerRef: scrollRef,
-@@ -94690,7 +95113,7 @@
+@@ -94686,7 +95109,7 @@ function ChatPanel() {
              onClose: () => setSearchOpen(false)
            }
          ),
@@ -558,7 +560,7 @@
            const isEmptyChat = !sessionLoading && messages.length === 0 && !isStreaming;
            if (isEmptyChat) {
              return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-10", children: [
-@@ -95185,6 +95608,7 @@
+@@ -95181,6 +95604,7 @@ async function probeGpu() {
    }
    return { available: false, name: null };
  }
@@ -566,7 +568,7 @@
  function VoiceSettings() {
    const { t: t2 } = useTranslation();
    const [status2, setStatus] = reactExports.useState(null);
-@@ -95296,7 +95720,7 @@
+@@ -95292,7 +95716,7 @@ function VoiceSettings() {
              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3", children: [
                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
@@ -575,7 +577,7 @@
                    isSelected && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1 text-[10px] text-accent", children: [
                      /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size: 11 }),
                      " ",
-@@ -95308,11 +95732,11 @@
+@@ -95304,11 +95728,11 @@ function VoiceSettings() {
                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: model.languages === "multi" ? t2("settings.voice.multilingual") : t2("settings.voice.englishOnly") }),
                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: t2("settings.voice.sizeMb", { mb: sizeMb }) }),
                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: model.license }),
@@ -589,7 +591,41 @@
                    "button",
                    {
                      type: "button",
-@@ -99607,8 +100031,20 @@
+@@ -99439,9 +99863,16 @@ function modelLabel(usage) {
+   return usage.name ?? usage.model;
+ }
+ function formatCompact(n) {
+-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+-  return String(n);
++  if (typeof n !== "number" || !Number.isFinite(n)) return "-";
++  const abs = Math.abs(n);
++  const units = [[1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"]];
++  for (const [scale, suffix] of units) {
++    if (abs >= scale) {
++      const value = n / scale;
++      return value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1") + suffix;
++    }
++  }
++  return new Intl.NumberFormat().format(n);
+ }
+ function formatHour(h, language2) {
+   return new Intl.DateTimeFormat(language2, { hour: "numeric" }).format(new Date(2e3, 0, 1, h));
+@@ -99471,10 +99902,11 @@ function bucketTokens(days, language2) {
+   }
+   return buckets2;
+ }
+-function StatCard({ label, value }) {
++function StatCard({ label, value, detail }) {
+   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-lg bg-card/40 px-3 py-2.5", children: [
+     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[11px] uppercase tracking-wide text-dim", children: label }),
+-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 truncate text-lg font-semibold text-primary", title: value, children: value })
++    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 truncate text-lg font-semibold text-primary", title: detail || value, children: value }),
++    detail && detail !== value ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 truncate text-[10px] tabular-nums text-faint", title: detail, children: detail }) : null
+   ] });
+ }
+ function Heatmap({ days }) {
+@@ -99603,8 +100035,21 @@ function StatsPanel() {
    }, [data2, range]);
    if (!data2 || data2.ranges["365"].messages === 0) return null;
    const stats2 = data2.ranges[range];
@@ -597,6 +633,7 @@
 +  const observedSummary = modUsageAccumulate(observedRows);
 +  const observedTokenMetric = observedSummary.metrics?.totalTokens;
 +  const observedTokenDisplay = observedTokenMetric?.reported ? formatCompact(observedTokenMetric.value) : "-";
++  const observedTokenExact = observedTokenMetric?.reported ? new Intl.NumberFormat().format(observedTokenMetric.value) : null;
 +  const observedModelsMap = new Map();
 +  for (const row of observedRows) {
 +    const existing = observedModelsMap.get(row.model) ?? { model: row.model, input: 0, output: 0 };
@@ -611,16 +648,16 @@
    const modelColor = new Map(
      orderedModels.map((model, i) => [model, MODEL_DOT_COLORS[i % MODEL_DOT_COLORS.length]])
    );
-@@ -99643,7 +100079,7 @@
+@@ -99639,7 +100084,7 @@ function StatsPanel() {
        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4", children: [
          /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.sessionsLabel"), value: stats2.sessions.toLocaleString(i18n2.language) }),
          /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.messagesLabel"), value: stats2.messages.toLocaleString(i18n2.language) }),
 -        /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.totalTokensLabel"), value: formatCompact(stats2.totalTokens) }),
-+        /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: "OMP processed tokens", value: observedTokenDisplay }),
++        /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: "OMP processed tokens", value: observedTokenDisplay, detail: observedTokenExact }),
          /* @__PURE__ */ jsxRuntimeExports.jsx(StatCard, { label: t2("stats.overview.activeDaysLabel"), value: stats2.activeDays.toLocaleString(i18n2.language) }),
          /* @__PURE__ */ jsxRuntimeExports.jsx(
            StatCard,
-@@ -99664,11 +100100,422 @@
+@@ -99660,11 +100105,433 @@ function StatsPanel() {
        ] }),
        /* @__PURE__ */ jsxRuntimeExports.jsx(Heatmap, { days: rangedDays })
      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -634,7 +671,7 @@
 +// Mod Usage UI v4: provider account ledger first, OMP journal diagnostics second.
 +function modUsageFormatMetric(metric) {
 +  if (!metric || !metric.reported) return "-";
-+  return new Intl.NumberFormat().format(metric.value) + (metric.missing ? " *" : "");
++  return formatCompact(metric.value) + (metric.missing ? " *" : "");
 +}
 +function modUsageFormatNumber(value) {
 +  return typeof value === "number" && Number.isFinite(value) ? new Intl.NumberFormat().format(value) : "-";
@@ -786,22 +823,33 @@
 +      setAccountBusy(false);
 +    }
 +  };
-+  const card = (key, title, customValue, customSource) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
-+    className: "rounded-lg border border-border bg-card/50 px-3 py-2.5",
-+    children: [
-+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: title }),
-+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xl font-semibold tabular-nums text-primary", children: customValue ?? modUsageFormatMetric(metric[key]) }),
-+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-xs text-faint", children: customSource ?? (customValue !== undefined ? "Observed from OMP journal" : modUsageMetricSource(key, metric[key], summary.responses)) })
-+    ]
-+  });
-+  const accountCard = (title, value, source) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
-+    className: "rounded-lg border border-border bg-card/50 px-3 py-2.5",
-+    children: [
-+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: title }),
-+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xl font-semibold tabular-nums text-primary", children: modUsageFormatNumber(value) }),
-+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-xs text-faint", children: source })
-+    ]
-+  });
++  const card = (key, title, customValue, customSource) => {
++    const rawMetric = customValue === undefined ? metric[key] : null;
++    const exactValue = rawMetric?.reported ? modUsageFormatNumber(rawMetric.value) + (rawMetric.missing ? " *" : "") : null;
++    const primaryValue = customValue ?? modUsageFormatMetric(rawMetric);
++    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++      className: "rounded-lg border border-border bg-card/50 px-3 py-2.5",
++      children: [
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: title }),
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xl font-semibold tabular-nums text-primary", children: primaryValue }),
++        exactValue && exactValue !== primaryValue ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-[10px] tabular-nums text-faint", title: "Exact value", children: exactValue }) : null,
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-xs text-faint", children: customSource ?? (customValue !== undefined ? "Observed from OMP journal" : modUsageMetricSource(key, rawMetric, summary.responses)) })
++      ]
++    });
++  };
++  const accountCard = (title, value, source) => {
++    const exactValue = modUsageFormatNumber(value);
++    const primaryValue = typeof value === "number" && Number.isFinite(value) ? formatCompact(value) : "-";
++    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", {
++      className: "rounded-lg border border-border bg-card/50 px-3 py-2.5",
++      children: [
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-muted", children: title }),
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-1 text-xl font-semibold tabular-nums text-primary", children: primaryValue }),
++        exactValue !== "-" && exactValue !== primaryValue ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-[10px] tabular-nums text-faint", title: "Exact value", children: exactValue }) : null,
++        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-xs text-faint", children: source })
++      ]
++    });
++  };
 +  const dropdown = (label, selected, callback, values, title) => /* @__PURE__ */ jsxRuntimeExports.jsxs("label", {
 +    className: "flex min-w-0 flex-1 flex-col gap-1.5 text-sm text-muted",
 +    children: [
@@ -1045,7 +1093,7 @@
  const MAX_RECENT_WORKSPACES = 6;
  const MAX_RECENT_SESSIONS = 5;
  const MAX_CHANGED_FILES = 8;
-@@ -103936,7 +104783,8 @@
+@@ -103932,7 +104799,8 @@ function App() {
                currentView === "diff" && /* @__PURE__ */ jsxRuntimeExports.jsx(DiffViewer, {}),
                currentView === "notes" && /* @__PURE__ */ jsxRuntimeExports.jsx(NotesPanel, {}),
                currentView === "skills" && /* @__PURE__ */ jsxRuntimeExports.jsx(SkillsPanel, {}),
